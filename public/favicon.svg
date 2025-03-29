@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Logo Outline -->
+  <circle cx="50" cy="50" r="45" fill="#1A4971" />
+  <!-- Main Blue Body -->
+  <circle cx="50" cy="50" r="40" fill="#55AADD" />
+  <!-- Face -->
+  <circle cx="50" cy="50" r="25" fill="#FFF8E1" />
+  <!-- Left Eye -->
+  <ellipse cx="40" cy="45" rx="5" ry="7" fill="#1A4971" />
+  <!-- Right Eye -->
+  <ellipse cx="60" cy="45" rx="5" ry="7" fill="#1A4971" />
+  <!-- Smile -->
+  <path d="M40 60c5 4 15 4 20 0" fill="none" stroke="#1A4971" strokeWidth="3" strokeLinecap="round" />
+  <!-- Lightning Bolt -->
+  <path d="M75 30l5-15l-10 5l-5 10z" fill="#FFCC33" />
+  <path d="M75 30l15 25l-10-5l-5-20z" fill="#FFCC33" />
+</svg> 
