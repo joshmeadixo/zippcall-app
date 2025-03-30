@@ -65,6 +65,19 @@ export default function VoiceCall({ userId }: VoiceCallProps) {
     };
     
     checkMicrophonePermission();
+    
+    // Set tiered timeouts to check permissions after initial load
+    // This helps catch when user grants permission in the browser dialog
+    // Some browsers have a delay between when permission is granted and when it's reflected in the API
+    const permissionCheckTimers = [
+      setTimeout(() => checkMicrophonePermission(), 500),  // Quick first check
+      setTimeout(() => checkMicrophonePermission(), 1500), // Second check after browser dialog might close
+      setTimeout(() => checkMicrophonePermission(), 3000)  // Final check for slow browsers
+    ];
+    
+    return () => {
+      permissionCheckTimers.forEach(timer => clearTimeout(timer));
+    };
   }, []);
 
   // Check for incoming calls
@@ -218,6 +231,54 @@ export default function VoiceCall({ userId }: VoiceCallProps) {
     }
   };
 
+  // Add function to manually check permissions
+  const recheckMicrophonePermission = async () => {
+    try {
+      // Direct microphone access attempt - this will trigger the browser permission dialog if needed
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
+      setMicPermission('granted');
+    } catch (err) {
+      console.error('Error accessing microphone:', err);
+      setMicPermission('denied');
+    }
+  };
+
+  // Add a periodic check for microphone permissions when in prompt state
+  useEffect(() => {
+    if (micPermission !== 'prompt') return;
+    
+    // Set up an interval to check permissions every few seconds
+    // This helps when a user grants permission in another tab or through browser settings
+    const periodicPermissionCheck = setInterval(() => {
+      recheckMicrophonePermission();
+    }, 5000); // Check every 5 seconds
+    
+    return () => {
+      clearInterval(periodicPermissionCheck);
+    };
+  }, [micPermission]);
+
+  // Add an event listener for visibility changes to recheck permissions when user returns to the app
+  useEffect(() => {
+    // Only add this listener if permission is still in "prompt" state
+    if (micPermission !== 'prompt') return;
+    
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // User has returned to the tab - recheck permissions
+        recheckMicrophonePermission();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Clean up
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [micPermission]);
+
   // Render microphone permission status/prompt if needed
   if (micPermission === 'denied') {
     return (
@@ -281,14 +342,24 @@ export default function VoiceCall({ userId }: VoiceCallProps) {
       {/* Main content */}
       <div className="p-6">
         {micPermission === 'prompt' && (
-          <div className="bg-yellow-100 text-yellow-700 p-3 rounded-md mb-4">
-            <p className="flex items-center">
-              <MicrophoneIcon className="h-5 w-5 mr-2" />
-              Microphone access is required for calls
-            </p>
-            <p className="text-sm mt-1">
-              Please allow microphone access when prompted by your browser.
-            </p>
+          <div className="bg-yellow-100 text-yellow-700 p-4 rounded-md mb-5 border-l-4 border-yellow-400">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <MicrophoneIcon className="h-6 w-6 mr-3 text-yellow-600" />
+                <div>
+                  <p className="font-medium">Microphone access is required</p>
+                  <p className="text-sm mt-1">
+                    Please click the button to grant microphone access. Your browser may show a permission dialog.
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={recheckMicrophonePermission}
+                className="ml-4 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-md text-sm font-medium"
+              >
+                Grant Access
+              </button>
+            </div>
           </div>
         )}
         
