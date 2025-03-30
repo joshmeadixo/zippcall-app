@@ -256,18 +256,18 @@ export default function VoiceCall({
                   
                   {callStartTime && isAccepted && (
                     <div className="mt-2">
-                      <CallTimer startTime={callStartTime} isActive={true} />
+                      <CallTimer startTime={callStartTime} isActive={isConnected} />
                     </div>
                   )}
                 </div>
                 
-                <AudioVisualizer isActive={isConnected && isAccepted} />
+                <AudioVisualizer isActive={isConnected} />
                 
                 <div className="mt-8">
                   <CallControls 
                     onHangup={hangupCall}
                     onToggleMute={handleToggleMute}
-                    disabled={!isConnected}
+                    disabled={false} /* Always enable controls */
                   />
                   
                   {/* Dialpad toggle */}

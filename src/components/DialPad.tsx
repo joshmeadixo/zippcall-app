@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { BackspaceIcon } from '@heroicons/react/24/solid';
 
 interface DialPadProps {
@@ -13,6 +13,9 @@ interface AudioContextWindow extends Window {
   webkitAudioContext: typeof AudioContext;
 }
 
+// Single AudioContext shared across all key presses
+let sharedAudioContext: AudioContext | null = null;
+
 const DialPad = ({ onDigitPressed, onBackspace, disabled = false }: DialPadProps) => {
   const dialPadKeys = [
     ['1', '2', '3'],
@@ -20,9 +23,41 @@ const DialPad = ({ onDigitPressed, onBackspace, disabled = false }: DialPadProps
     ['7', '8', '9'],
     ['*', '0', '#']
   ];
+  
+  // Store oscillators and gain node refs for cleanup
+  const oscillators = useRef<OscillatorNode[]>([]);
+  const gainNode = useRef<GainNode | null>(null);
+  
+  // Ensure AudioContext is created and available
+  const ensureAudioContext = useCallback(() => {
+    if (!sharedAudioContext) {
+      try {
+        const windowWithAudioContext = window as unknown as AudioContextWindow;
+        const AudioContextClass = windowWithAudioContext.AudioContext || windowWithAudioContext.webkitAudioContext;
+        sharedAudioContext = new AudioContextClass();
+        
+        // Auto-resume context on user interaction if suspended
+        document.addEventListener('click', function resumeAudioContext() {
+          if (sharedAudioContext && sharedAudioContext.state === 'suspended') {
+            sharedAudioContext.resume().catch(console.error);
+          }
+        }, { once: true });
+      } catch (err) {
+        console.error('Failed to create AudioContext for DTMF tones:', err);
+        return null;
+      }
+    }
+    
+    // Try to resume if suspended
+    if (sharedAudioContext && sharedAudioContext.state === 'suspended') {
+      sharedAudioContext.resume().catch(console.error);
+    }
+    
+    return sharedAudioContext;
+  }, []);
 
   // Play DTMF tone when a key is pressed
-  const playTone = useCallback(async (digit: string) => {
+  const playTone = useCallback((digit: string) => {
     if (disabled) return;
     
     let freq1 = 0;
@@ -46,52 +81,79 @@ const DialPad = ({ onDigitPressed, onBackspace, disabled = false }: DialPadProps
     }
     
     try {
-      // Create audio context with a basic approach
-      const windowWithAudioContext = window as unknown as AudioContextWindow;
-      const AudioContextClass = windowWithAudioContext.AudioContext || windowWithAudioContext.webkitAudioContext;
-      const audioCtx = new AudioContextClass();
+      // Get audio context
+      const audioCtx = ensureAudioContext();
+      if (!audioCtx) return;
       
-      // Make sure it's running
+      // Force resume audio context if suspended
       if (audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(err => {
+          console.warn('Failed to resume AudioContext:', err);
+        });
+      }
+      
+      // Clean up any previous oscillators
+      oscillators.current.forEach(osc => {
         try {
-          await audioCtx.resume();
+          osc.stop();
+          osc.disconnect();
         } catch {
-          console.warn('Failed to resume AudioContext');
+          // Ignore errors from already stopped oscillators
+        }
+      });
+      oscillators.current = [];
+      
+      if (gainNode.current) {
+        try {
+          gainNode.current.disconnect();
+        } catch {
+          // Ignore errors from already disconnected nodes
         }
       }
+      
+      // Create a new gain node
+      gainNode.current = audioCtx.createGain();
+      gainNode.current.gain.value = 0.25; // Slightly louder for better hearing
       
       // Create oscillators
       const osc1 = audioCtx.createOscillator();
       const osc2 = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
       
       // Set frequencies
       osc1.frequency.value = freq1;
       osc2.frequency.value = freq2;
       
-      // Set volume
-      gainNode.gain.value = 0.1;
-      
       // Connect nodes
-      osc1.connect(gainNode);
-      osc2.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
+      osc1.connect(gainNode.current);
+      osc2.connect(gainNode.current);
+      gainNode.current.connect(audioCtx.destination);
+      
+      // Store oscillators for cleanup
+      oscillators.current.push(osc1, osc2);
       
       // Play tone
       osc1.start();
       osc2.start();
+
+      // Log the tone playback
+      console.log(`[DialPad] Playing DTMF tone for digit: ${digit}`);
       
-      // Stop after short duration and clean up
+      // Stop after short duration
       setTimeout(() => {
-        osc1.stop();
-        osc2.stop();
-        gainNode.disconnect();
-        audioCtx.close().catch(() => {});
+        try {
+          osc1.stop();
+          osc2.stop();
+          osc1.disconnect();
+          osc2.disconnect();
+          if (gainNode.current) gainNode.current.disconnect();
+        } catch {
+          console.warn('Error stopping DTMF tone');
+        }
       }, 150);
     } catch (err) {
       console.error('Error playing DTMF tone:', err);
     }
-  }, [disabled]);
+  }, [disabled, ensureAudioContext]);
 
   // Handle key presses for digits
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -111,6 +173,28 @@ const DialPad = ({ onDigitPressed, onBackspace, disabled = false }: DialPadProps
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      
+      // Clean up audio resources
+      if (oscillators.current.length > 0) {
+        oscillators.current.forEach(osc => {
+          try {
+            osc.stop();
+            osc.disconnect();
+          } catch {
+            // Ignore errors from already stopped oscillators
+          }
+        });
+        oscillators.current = [];
+      }
+      
+      if (gainNode.current) {
+        try {
+          gainNode.current.disconnect();
+        } catch {
+          // Ignore errors from already disconnected nodes
+        }
+        gainNode.current = null;
+      }
     };
   }, [handleKeyDown]);
 

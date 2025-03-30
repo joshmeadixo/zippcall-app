@@ -26,7 +26,7 @@ interface UseTwilioDeviceReturn {
   isAccepted: boolean;
   error: string | null;
   makeCall: (to: string) => Promise<void>;
-  hangupCall: () => void;
+  hangupCall: () => boolean;
   answerCall: () => void;
   rejectCall: () => void;
 }
@@ -118,6 +118,10 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
         localDevice = new Device(token, {
           codecPreferences: [Call.Codec.Opus, Call.Codec.PCMU],
           allowIncomingWhileBusy: true,
+          // Explicitly enable all audio features
+          disableAudioContextSounds: false,
+          // Set log level for debugging
+          logLevel: 'debug'
         });
         
         // First add event listeners
@@ -404,29 +408,35 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
   const hangupCall = useCallback(() => {
     console.log('[useTwilioDevice] hangupCall: Attempting to hang up call...');
     
-    // Ensure we have a call to hang up
-    if (!call) {
-      console.log('[useTwilioDevice] hangupCall: No active call to hang up');
-      return;
+    // If we have a call object, try to disconnect it
+    if (call) {
+      try {
+        call.disconnect();
+        console.log('[useTwilioDevice] hangupCall: Call disconnect initiated');
+      } catch (err) {
+        console.error('[useTwilioDevice] hangupCall: Error disconnecting call:', err);
+      }
+    } else if (device) {
+      // If we don't have a call but have a device, try disconnecting all calls
+      try {
+        device.disconnectAll();
+        console.log('[useTwilioDevice] hangupCall: Device disconnectAll initiated');
+      } catch (err) {
+        console.error('[useTwilioDevice] hangupCall: Error disconnecting all calls:', err);
+      }
     }
     
-    try {
-      // Disconnect the call - this will trigger the disconnect event handler
-      call.disconnect();
-      console.log('[useTwilioDevice] hangupCall: Disconnect initiated');
-      
-      // Also immediately set connecting to false to update UI
-      setIsConnecting(false);
-    } catch (err) {
-      console.error('[useTwilioDevice] hangupCall: Error hanging up call:', err);
-      
-      // Force state reset in case the disconnect event doesn't fire
-      setIsConnecting(false);
-      setIsConnected(false);
-      setIsAccepted(false);
-      setCall(null);
-    }
-  }, [call]);
+    // Always reset states regardless of whether we had a call object
+    // This ensures the UI is updated even if call state tracking was lost
+    console.log('[useTwilioDevice] hangupCall: Resetting all call states');
+    setIsConnecting(false);
+    setIsConnected(false);
+    setIsAccepted(false);
+    setCall(null);
+    setError(null);
+    
+    return true; // Return success to caller
+  }, [call, device]);
 
   // Answer an incoming call
   const answerCall = useCallback(async () => {
