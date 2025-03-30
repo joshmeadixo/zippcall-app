@@ -11,6 +11,7 @@ interface PhoneInputWithFlagProps {
   className?: string;
   onFocus?: () => void;
   onValidityChange?: (isValid: boolean, formattedNumber?: string) => void;
+  onCountrySelect?: () => void;
 }
 
 const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
@@ -19,7 +20,8 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
   placeholder = "+1 (234) 567-8900",
   className = "",
   onFocus,
-  onValidityChange
+  onValidityChange,
+  onCountrySelect
 }) => {
   const [formattedValue, setFormattedValue] = useState(value);
   const [isValid, setIsValid] = useState(true);
@@ -96,8 +98,21 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
       if (!formattedValue || formattedValue.replace(/\+/g, '').length <= 2) {
         setUserHasTyped(false);
       }
+      
+      // Notify parent component that a country has been selected
+      if (onCountrySelect) {
+        onCountrySelect();
+      }
     }
   };
+
+  // When component mounts, notify parent if US is pre-selected
+  useEffect(() => {
+    // Default country is already selected, so notify parent
+    if (onCountrySelect) {
+      onCountrySelect();
+    }
+  }, [onCountrySelect]); // Add onCountrySelect as a dependency
 
   return (
     <div className="phone-input-wrapper">

@@ -1,7 +1,7 @@
 import React, { useState, FormEvent, useEffect } from 'react';
 import { useTwilioDevice } from '@/hooks/useTwilioDevice';
 import { PhoneIcon, PhoneXMarkIcon, MicrophoneIcon, XCircleIcon } from '@heroicons/react/24/solid';
-import { ArrowUpRightIcon, PhoneArrowUpRightIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { PhoneArrowUpRightIcon, ClockIcon, GlobeAmericasIcon } from '@heroicons/react/24/outline';
 import DialPad from './DialPad';
 import CallTimer from './CallTimer';
 import CallControls from './CallControls';
@@ -25,13 +25,16 @@ export default function VoiceCall({
 }: VoiceCallProps) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isIncomingCall, setIsIncomingCall] = useState(false);
-  const [micPermission, setMicPermission] = useState<'granted' | 'denied' | 'prompt' | 'checking'>('checking');
+  // Define all possible mic permission states
+  type MicPermissionState = 'granted' | 'denied' | 'prompt' | 'checking';
+  const [micPermission, setMicPermission] = useState<MicPermissionState>('checking');
   const [callStartTime, setCallStartTime] = useState<number | null>(null);
   const [showDialpad, setShowDialpad] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [callHistory, setCallHistory] = useState<CallHistoryEntry[]>([]);
   const [isPhoneNumberValid, setIsPhoneNumberValid] = useState(false);
   const [validatedE164Number, setValidatedE164Number] = useState<string>('');
+  const [countrySelected, setCountrySelected] = useState<boolean>(false);
 
   const {
     isReady,
@@ -148,6 +151,10 @@ export default function VoiceCall({
     } else {
       setValidatedE164Number('');
     }
+  };
+
+  const handleCountrySelection = () => {
+    setCountrySelected(true);
   };
 
   const handleCallSubmit = async (e: FormEvent) => {
@@ -301,15 +308,14 @@ export default function VoiceCall({
     }
   };
 
-  // Add function to manually check permissions
+  // Checking microphone permission
   const recheckMicrophonePermission = async () => {
     try {
-      // Direct microphone access attempt - this will trigger the browser permission dialog if needed
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach(track => track.stop());
       setMicPermission('granted');
     } catch (err) {
-      console.error('Error accessing microphone:', err);
+      console.error('Failed to get microphone access:', err);
       setMicPermission('denied');
     }
   };
@@ -349,235 +355,152 @@ export default function VoiceCall({
     };
   }, [micPermission]);
 
-  // Render microphone permission status/prompt if needed
-  if (micPermission === 'denied') {
-    return (
-      <div className="bg-white rounded-lg p-6 shadow-md">
-        <h3 className="text-xl font-semibold mb-4">Microphone Access Required</h3>
-        <div className="bg-red-100 text-red-700 p-4 rounded-md mb-4">
-          <p className="flex items-center">
-            <MicrophoneIcon className="h-5 w-5 mr-2" />
-            Microphone access was denied
-          </p>
-          <p className="mt-2 text-sm">
-            To make and receive calls, please allow microphone access in your browser settings and refresh the page.
-          </p>
-        </div>
-        <button
-          onClick={async () => {
-            try {
-              const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-              stream.getTracks().forEach(track => track.stop());
-              setMicPermission('granted');
-            } catch (err) {
-              console.error('Failed to get microphone access:', err);
-            }
-          }}
-          className="bg-blue-500 hover:bg-blue-600 text-white rounded-md px-4 py-2 w-full"
-        >
-          Request Microphone Access
-        </button>
-      </div>
-    );
-  }
-  
-  if (micPermission === 'checking') {
-    return (
-      <div className="bg-white rounded-lg p-6 shadow-md">
-        <h3 className="text-xl font-semibold mb-4">Checking Microphone Access</h3>
-        <div className="flex items-center justify-center p-6">
-          <div className="animate-spin w-6 h-6 border-2 border-blue-500 rounded-full border-t-transparent mr-2"></div>
-          <p>Checking microphone permission...</p>
-        </div>
-      </div>
-    );
-  }
-  
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      {/* Header */}
-      <div className="bg-blue-500 text-white p-4 flex justify-between items-center">
-        <h3 className="text-xl font-semibold">{title}</h3>
-        {!hideHistory && (
-          <div className="flex space-x-2">
+    <div className="bg-white shadow-lg rounded-lg max-w-md mx-auto overflow-hidden">
+      <div className="p-4 bg-gray-50 flex items-center justify-between border-b">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <div className="flex space-x-2">
+          {!hideHistory && (
             <button 
               onClick={() => setShowHistory(!showHistory)}
-              className={`p-2 rounded-full ${showHistory ? 'bg-blue-600' : 'hover:bg-blue-600'}`}
-              aria-label="Toggle call history"
+              className="text-gray-700 rounded-full hover:bg-gray-200 p-2 transition-colors"
             >
               <ClockIcon className="h-5 w-5" />
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-      
-      {/* Main content */}
-      <div className="p-6">
-        {micPermission === 'prompt' && (
-          <div className="bg-yellow-100 text-yellow-700 p-4 rounded-md mb-5 border-l-4 border-yellow-400">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <MicrophoneIcon className="h-6 w-6 mr-3 text-yellow-600" />
-                <div>
-                  <p className="font-medium">Microphone access is required</p>
-                  <p className="text-sm mt-1">
-                    Please click the button to grant microphone access. Your browser may show a permission dialog.
-                  </p>
-                </div>
-              </div>
-              <button 
-                onClick={recheckMicrophonePermission}
-                className="ml-4 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-md text-sm font-medium"
-              >
-                Grant Access
-              </button>
-            </div>
+
+      <div className="p-4">
+        {error && (
+          <div className="mb-4 p-2 bg-red-100 text-red-800 rounded-lg text-sm">
+            {error === 'Unable to start call: Permission denied' 
+              ? 'Microphone access was denied. Please allow microphone access to make calls.' 
+              : error}
           </div>
         )}
         
-        {error && (
-          <div className="bg-red-100 text-red-700 p-3 rounded-md mb-4">
-            Error: {error}
+        {/* Microphone permission handling */}
+        {micPermission === 'checking' && (
+          <div className="text-center p-4">
+            <p>Checking microphone access...</p>
           </div>
         )}
-
-        {/* Call history view */}
-        {showHistory && !isConnected && !isConnecting && !isIncomingCall ? (
-          <div>
-            <h4 className="text-lg font-medium mb-3">Recent Calls</h4>
-            <CallHistory 
-              calls={callHistory} 
-              onCallClick={handleHistoryCallClick} 
-            />
-            <button
-              onClick={() => setShowHistory(false)}
-              className="mt-4 w-full p-2 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50"
+        
+        {micPermission === 'denied' && (
+          <div className="text-center p-4 bg-red-50 rounded-lg mb-4">
+            <MicrophoneIcon className="h-8 w-8 text-red-500 mx-auto mb-2" />
+            <p className="font-semibold text-red-700">Microphone access is required for calls</p>
+            <p className="text-sm text-red-600 mt-1">Please allow microphone access in your browser settings.</p>
+          </div>
+        )}
+        
+        {micPermission === 'prompt' && (
+          <div className="text-center p-4 bg-yellow-50 rounded-lg mb-4">
+            <MicrophoneIcon className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
+            <p className="font-semibold text-yellow-700">Microphone access is required for calls</p>
+            <p className="text-sm text-yellow-600 mt-1">Please allow microphone access when prompted.</p>
+            <button 
+              onClick={recheckMicrophonePermission}
+              className="mt-2 px-4 py-2 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200 transition-colors"
             >
-              Back to Dialpad
+              Check Permission
             </button>
           </div>
-        ) : (
+        )}
+        
+        {/* Call UI */}
+        {micPermission === 'granted' && (
           <>
-            {!isReady ? (
-              <div className="flex items-center justify-center p-6">
-                <div className="animate-spin w-6 h-6 border-2 border-blue-500 rounded-full border-t-transparent mr-2"></div>
-                <p>Initializing phone...</p>
-              </div>
-            ) : isConnected ? (
+            {showHistory ? (
+              <CallHistory 
+                calls={callHistory} 
+                onCallClick={handleHistoryCallClick}
+              />
+            ) : isConnected || isConnecting ? (
               // Active call view
-              <div className="text-center">
-                <div className="mb-4">
-                  <p className="text-lg font-medium mb-1">
-                    Call in progress
+              <div>
+                <div className="text-center mb-4">
+                  <h3 className="text-xl font-bold">
+                    {phoneNumber}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    {isConnecting ? 'Connecting...' : isAccepted ? 'In Progress' : 'Ringing...'}
                   </p>
-                  <p className="text-gray-500 text-sm">
-                    {phoneNumber || 'Unknown number'}
-                  </p>
-                </div>
-                
-                <AudioVisualizer isActive={isConnected} />
-                
-                <div className="my-4">
-                  <CallTimer startTime={callStartTime} isActive={isAccepted} />
-                </div>
-                
-                <CallControls 
-                  onHangup={hangupCall}
-                  onToggleMute={handleToggleMute}
-                />
-                
-                {/* Dialpad for active call (for IVR navigation) */}
-                <div className="mt-4">
-                  <button
-                    onClick={() => setShowDialpad(!showDialpad)}
-                    className="text-blue-500 text-sm mb-2"
-                  >
-                    {showDialpad ? 'Hide Dialpad' : 'Show Dialpad'}
-                  </button>
                   
-                  {showDialpad && (
+                  {callStartTime && isAccepted && (
                     <div className="mt-2">
-                      <DialPad 
-                        onDigitPressed={handleDigitPressed}
-                        onBackspace={handleBackspace}
-                      />
+                      <CallTimer startTime={callStartTime} isActive={true} />
                     </div>
                   )}
                 </div>
+                
+                <AudioVisualizer isActive={isConnected && isAccepted} />
+                
+                <div className="mt-8">
+                  <CallControls 
+                    onHangup={hangupCall}
+                    onToggleMute={handleToggleMute}
+                    disabled={!isConnected}
+                  />
+                  
+                  {/* Dialpad toggle */}
+                  <div className="text-center mt-4">
+                    <button 
+                      onClick={() => setShowDialpad(!showDialpad)}
+                      className="text-blue-600 text-sm hover:text-blue-800 focus:outline-none"
+                    >
+                      {showDialpad ? 'Hide Dialpad' : 'Show Dialpad'}
+                    </button>
+                  </div>
+                </div>
+                
+                {showDialpad && (
+                  <div className="mt-6">
+                    <DialPad 
+                      onDigitPressed={handleDigitPressed}
+                      onBackspace={handleBackspace}
+                    />
+                  </div>
+                )}
               </div>
             ) : isIncomingCall ? (
               // Incoming call view
               <div className="text-center">
                 <div className="animate-pulse mb-4">
-                  <ArrowUpRightIcon className="h-12 w-12 mx-auto text-green-500 mb-2" />
-                  <p className="text-lg font-medium">Incoming call</p>
-                  <p className="text-gray-500">{call?.parameters.From || 'Unknown'}</p>
+                  <PhoneIcon className="h-12 w-12 text-green-500 mx-auto" />
                 </div>
+                <h3 className="text-xl font-semibold mb-2">Incoming Call</h3>
+                <p className="text-lg mb-6">Unknown Caller</p>
                 
-                <div className="flex justify-center space-x-6 mt-6">
+                <div className="flex justify-center space-x-4">
                   <button
-                    onClick={() => {
-                      answerCall();
-                      setIsIncomingCall(false);
-                    }}
-                    className="bg-green-500 hover:bg-green-600 text-white rounded-full p-4 flex items-center justify-center"
-                    aria-label="Answer call"
-                  >
-                    <PhoneIcon className="h-6 w-6" />
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      rejectCall();
-                      setIsIncomingCall(false);
-                      
-                      // Add to history as rejected call
-                      const newCall: CallHistoryEntry = {
-                        id: Date.now().toString(),
-                        phoneNumber: call?.parameters.From || 'Unknown',
-                        timestamp: Date.now(),
-                        duration: 0,
-                        direction: 'incoming',
-                        status: 'rejected'
-                      };
-                      
-                      const updatedHistory = [newCall, ...callHistory].slice(0, 50);
-                      setCallHistory(updatedHistory);
-                      
-                      // Notify parent component if callback provided
-                      if (onHistoryUpdate) {
-                        onHistoryUpdate(updatedHistory);
-                      }
-                    }}
-                    className="bg-red-500 hover:bg-red-600 text-white rounded-full p-4 flex items-center justify-center"
-                    aria-label="Reject call"
+                    onClick={rejectCall}
+                    className="rounded-full p-4 bg-red-500 text-white hover:bg-red-600"
                   >
                     <PhoneXMarkIcon className="h-6 w-6" />
                   </button>
+                  <button
+                    onClick={answerCall}
+                    className="rounded-full p-4 bg-green-500 text-white hover:bg-green-600"
+                  >
+                    <PhoneIcon className="h-6 w-6" />
+                  </button>
                 </div>
-              </div>
-            ) : isConnecting ? (
-              // Connecting call view
-              <div className="text-center">
-                <div className="mb-4">
-                  <p className="text-lg font-medium mb-1">Calling...</p>
-                  <p className="text-gray-500">{phoneNumber}</p>
-                </div>
-                
-                <div className="flex items-center justify-center mb-4">
-                  <div className="animate-spin w-6 h-6 border-2 border-blue-500 rounded-full border-t-transparent"></div>
-                </div>
-                
-                <button
-                  onClick={hangupCall}
-                  className="bg-red-500 hover:bg-red-600 text-white rounded-full p-4 flex items-center justify-center mx-auto"
-                >
-                  <PhoneXMarkIcon className="h-6 w-6" />
-                </button>
               </div>
             ) : (
               // Idle phone view with dial pad
               <div>
+                {!countrySelected && (
+                  <div className="mb-6 text-center p-4 bg-blue-50 rounded-lg">
+                    <GlobeAmericasIcon className="h-8 w-8 text-blue-500 mx-auto mb-2" />
+                    <p className="font-medium text-blue-800">Please select a country first</p>
+                    <p className="text-sm text-blue-600 mt-1">
+                      Select your destination country from the dropdown below to enable dialing
+                    </p>
+                  </div>
+                )}
+                
                 <div className="mb-6 relative">
                   <PhoneInputWithFlag
                     value={phoneNumber}
@@ -585,6 +508,7 @@ export default function VoiceCall({
                     placeholder="+1 (234) 567-8900"
                     onFocus={() => {}}
                     onValidityChange={handlePhoneValidityChange}
+                    onCountrySelect={handleCountrySelection}
                   />
                   {phoneNumber && (
                     <button
@@ -597,22 +521,25 @@ export default function VoiceCall({
                   )}
                 </div>
                 
-                <DialPad 
-                  onDigitPressed={handleDigitPressed}
-                  onBackspace={handleBackspace}
-                />
+                <div className={`${!countrySelected ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <DialPad 
+                    onDigitPressed={handleDigitPressed}
+                    onBackspace={handleBackspace}
+                  />
+                </div>
                 
                 <div className="mt-6 flex justify-center">
                   <button
                     onClick={handleCallSubmit}
-                    disabled={!phoneNumber.trim() || !isReady || !isPhoneNumberValid}
+                    disabled={!phoneNumber.trim() || !isReady || !isPhoneNumberValid || !countrySelected}
                     className={`rounded-full p-5 flex items-center justify-center
-                      ${!phoneNumber.trim() || !isReady || !isPhoneNumberValid
+                      ${!phoneNumber.trim() || !isReady || !isPhoneNumberValid || !countrySelected
                         ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                         : 'bg-green-500 text-white hover:bg-green-600'
                       }`}
                     aria-label="Make call"
-                    title={!isPhoneNumberValid && phoneNumber.trim() ? "Please enter a valid phone number" : "Make call"}
+                    title={!countrySelected ? "Please select a country first" :
+                           !isPhoneNumberValid && phoneNumber.trim() ? "Please enter a valid phone number" : "Make call"}
                   >
                     <PhoneArrowUpRightIcon className="h-6 w-6" />
                   </button>
@@ -621,10 +548,6 @@ export default function VoiceCall({
             )}
           </>
         )}
-      </div>
-      
-      <div className="px-4 py-2 text-xs text-gray-500 border-t">
-        <p>Status: {isReady ? 'Ready' : 'Initializing'} | Mic: {micPermission} {isConnected && (isAccepted ? '| Call: Connected' : '| Call: Connecting...')}</p>
       </div>
     </div>
   );
