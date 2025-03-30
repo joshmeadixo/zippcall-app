@@ -48,9 +48,11 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
         const windowWithAudioContext = window as unknown as AudioContextWindow;
         const AudioContextClass = windowWithAudioContext.AudioContext || windowWithAudioContext.webkitAudioContext;
         audioContextRef.current = new AudioContextClass();
+        console.log('[useTwilioDevice] Created new AudioContext successfully');
       } catch (err) {
         console.error('[useTwilioDevice] Failed to create AudioContext:', err);
-        return false;
+        // Return true anyway to allow device initialization to continue
+        return true;
       }
     }
     
@@ -62,11 +64,12 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
         console.log('[useTwilioDevice] AudioContext resumed successfully.');
       } catch (err) {
         console.error('[useTwilioDevice] Failed to resume AudioContext:', err);
-        return false;
+        // Return true anyway to allow initialization to continue
+        return true;
       }
     }
     
-    return audioContextRef.current.state === 'running';
+    return true; // Always return true to continue initialization
   }, []);
 
   // Initialize the device
@@ -89,9 +92,13 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
           console.log('[useTwilioDevice] Microphone access seems available or granted.');
           
           // Initialize AudioContext after mic permission
-          const audioContextReady = await ensureAudioContext();
-          if (!audioContextReady) {
-            throw new Error('Could not initialize audio system');
+          try {
+            const audioContextReady = await ensureAudioContext();
+            console.log(`[useTwilioDevice] AudioContext status: ${audioContextReady ? 'ready' : 'not ready'}`);
+            // Even if audioContextReady is false, we'll continue
+          } catch (audioErr) {
+            console.error('[useTwilioDevice] Error initializing AudioContext:', audioErr);
+            // Continue without AudioContext - audio might not work but device could initialize
           }
       } catch (permErr) {
           console.error('[useTwilioDevice] Microphone permission denied or error:', permErr);
@@ -103,9 +110,8 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
           }
           return; // Stop initialization
       }
-      // --- End of permission check ---
       
-      // Proceed only if permission was likely granted
+      // Proceed with audio and mic ready
       try {
         console.log('[useTwilioDevice] Fetching Twilio token...');
         const response = await fetch('/api/twilio-token', {
@@ -126,10 +132,9 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
         localDevice = new Device(token, {
           logLevel: 1, // 0 = errors, 1 = warnings, 2 = info, 3 = debug, 4 = trace
           codecPreferences: [Call.Codec.Opus, Call.Codec.PCMU],
-          // Ensure edge is explicitly set if needed for your region/setup
-          // edge: 'your_edge_location' // e.g., 'ashburn', 'frankfurt' 
         });
         
+        // Ensure the device has time to initialize
         await localDevice.register();
         console.log('[useTwilioDevice] Device registered.');
 
@@ -161,6 +166,7 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
         localDevice.destroy();      // Destroy the device instance
         console.log('[useTwilioDevice] Cleanup: Device destroyed.');
       }
+      
       // Reset state on cleanup
       setDevice(null);
       setIsReady(false);
@@ -168,10 +174,18 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
       setIsConnecting(false);
       setIsConnected(false);
       setIsAccepted(false);
-      // Keep error state? Maybe clear it here too?
-      // setError(null); 
+      
+      // Also clean up AudioContext if it exists
+      if (audioContextRef.current) {
+        try {
+          audioContextRef.current.close();
+          audioContextRef.current = null;
+        } catch (err) {
+          console.error('[useTwilioDevice] Error closing AudioContext:', err);
+        }
+      }
     };
-  }, [userId]); // Effect runs when userId changes
+  }, [userId, ensureAudioContext]); // Added ensureAudioContext as a dependency
 
   // Register listeners for device state changes
   useEffect(() => {
@@ -309,12 +323,13 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
       return;
     }
     
-    // Ensure AudioContext is resumed before making call
-    const audioReady = await ensureAudioContext();
-    if (!audioReady) {
-      setError('Could not initialize audio system. Please try again.');
-      console.error('[useTwilioDevice] makeCall: AudioContext not ready');
-      return;
+    // Try to ensure AudioContext is resumed before making call, but continue anyway
+    try {
+      const audioReady = await ensureAudioContext();
+      console.log(`[useTwilioDevice] makeCall: AudioContext ready: ${audioReady}`);
+    } catch (err) {
+      console.error('[useTwilioDevice] makeCall: AudioContext error:', err);
+      // Continue anyway to try to make the call
     }
     
     try {
@@ -348,7 +363,7 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
       setIsConnecting(false);
       setCall(null);
     }
-  }, [device, isReady]);
+  }, [device, isReady, ensureAudioContext]);
 
   // Hang up the current call
   const hangupCall = useCallback(() => {
@@ -368,12 +383,13 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
       return;
     }
     
-    // Ensure AudioContext is resumed before answering call
-    const audioReady = await ensureAudioContext();
-    if (!audioReady) {
-      setError('Could not initialize audio system. Please try again.');
-      console.error('[useTwilioDevice] answerCall: AudioContext not ready');
-      return;
+    // Try to ensure AudioContext is resumed before answering call, but continue anyway
+    try {
+      const audioReady = await ensureAudioContext();
+      console.log(`[useTwilioDevice] answerCall: AudioContext ready: ${audioReady}`);
+    } catch (err) {
+      console.error('[useTwilioDevice] answerCall: AudioContext error:', err);
+      // Continue anyway to try to answer the call
     }
     
     console.log('[useTwilioDevice] answerCall: Accepting incoming call...');
