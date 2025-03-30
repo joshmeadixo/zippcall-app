@@ -178,9 +178,14 @@ export default function VoiceCall({
 
   const handleDigitPressed = (digit: string) => {
     if (isConnected && call) {
-      call.sendDigits(digit);
+      console.log(`[VoiceCall] Sending digit: ${digit}`);
+      try {
+        call.sendDigits(digit);
+      } catch (err) {
+        console.error(`[VoiceCall] Error sending digit ${digit}:`, err);
+      }
     } else if (countrySelected) {
-        setNationalPhoneNumber(prev => prev + digit);
+      setNationalPhoneNumber(prev => prev + digit);
     }
   };
 
@@ -265,7 +270,11 @@ export default function VoiceCall({
                 
                 <div className="mt-8">
                   <CallControls 
-                    onHangup={hangupCall}
+                    onHangup={() => {
+                      console.log('[VoiceCall] Hangup button clicked');
+                      const result = hangupCall();
+                      console.log('[VoiceCall] Hangup result:', result);
+                    }}
                     onToggleMute={handleToggleMute}
                     disabled={false} /* Always enable controls */
                   />
