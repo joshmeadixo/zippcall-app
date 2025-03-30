@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import VoiceCall from '@/components/VoiceCall';
 
 export default function DashboardAuthOnly() {
   const { user, loading, signOut } = useAuth();
@@ -62,37 +63,35 @@ export default function DashboardAuthOnly() {
             </div>
           </header>
 
-          <div className="bg-white rounded-lg shadow-xl p-8">
-            <h2 className="text-2xl font-bold text-center mb-6">Welcome to ZippCall</h2>
-            
-            <div className="text-center mb-8">
-              <p className="text-gray-700">You&apos;re now signed in with:</p>
-              <p className="font-medium mt-2">{user.email}</p>
-              <p className="text-sm text-gray-500 mt-1">User ID: {user.uid.substring(0, 8)}...</p>
-            </div>
-            
-            <div className="bg-gray-50 p-6 rounded-lg mb-6">
-              <h3 className="text-lg font-semibold mb-4">Ready to Implement Calling</h3>
-              <p className="text-gray-700">
-                This is a clean starting point with authentication working. 
-                You can now implement the Twilio Voice SDK from scratch.
-              </p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="font-medium text-blue-700 mb-2">Authentication</h4>
-                <p className="text-sm text-gray-600">
-                  Firebase authentication is working correctly. You can sign out and sign back in.
-                </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="bg-white rounded-lg shadow-xl p-8">
+              <h2 className="text-2xl font-bold text-center mb-6">Welcome to ZippCall</h2>
+              
+              <div className="text-center mb-8">
+                <p className="text-gray-700">You&apos;re now signed in with:</p>
+                <p className="font-medium mt-2">{user.email}</p>
+                <p className="text-sm text-gray-500 mt-1">User ID: {user.uid.substring(0, 8)}...</p>
               </div>
               
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h4 className="font-medium text-green-700 mb-2">Next Steps</h4>
-                <p className="text-sm text-gray-600">
-                  Install the Twilio Voice SDK and implement calling features.
-                </p>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-blue-700 mb-2">Authentication</h4>
+                  <p className="text-sm text-gray-600">
+                    Firebase authentication is working correctly. You can sign out and sign back in.
+                  </p>
+                </div>
+                
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-green-700 mb-2">Twilio Voice SDK</h4>
+                  <p className="text-sm text-gray-600">
+                    Use the call panel to make outbound calls or receive incoming calls.
+                  </p>
+                </div>
               </div>
+            </div>
+            
+            <div>
+              <VoiceCall userId={user.uid} />
             </div>
           </div>
         </div>
