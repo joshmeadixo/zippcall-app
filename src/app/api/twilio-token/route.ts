@@ -3,7 +3,6 @@ import twilio from 'twilio';
 
 // Your Twilio credentials should be stored in environment variables
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
-const authToken = process.env.TWILIO_AUTH_TOKEN;
 const apiKey = process.env.TWILIO_API_KEY;
 const apiSecret = process.env.TWILIO_API_SECRET;
 const twimlAppSid = process.env.TWILIO_TWIML_APP_SID;

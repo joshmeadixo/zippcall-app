@@ -101,7 +101,7 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
         device.destroy();
       }
     };
-  }, [userId]);
+  }, [userId, device]);
 
   // Make an outgoing call
   const makeCall = useCallback(async (to: string) => {

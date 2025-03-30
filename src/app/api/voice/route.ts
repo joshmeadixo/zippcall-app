@@ -5,7 +5,6 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const to = formData.get('To') as string;
-    const fromIdentity = formData.get('From') as string;
     
     const twiml = new twilio.twiml.VoiceResponse();
 
