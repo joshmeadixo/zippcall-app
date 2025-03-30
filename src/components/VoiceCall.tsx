@@ -174,35 +174,46 @@ export default function VoiceCall({
     setValidatedE164Number('');
   };
 
+  // Submit call
   const handleCallSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
+    // console.log(`[handleCallSubmit] Attempting call with Country: ${selectedCountry}, NationalNumber: ${nationalPhoneNumber}`);
     const fullNumberToCall = `+${getCountryCallingCode(selectedCountry)}${nationalPhoneNumber}`;
+    // console.log(`[handleCallSubmit] Constructed full number: ${fullNumberToCall}`);
     
+    // Re-validate just before calling
     const validation = validatePhoneNumber(fullNumberToCall, selectedCountry);
+    // console.log(`[handleCallSubmit] Validation Result:`, validation);
+    
     if (!validation.isValid || !validation.e164Number) {
-        console.error('Invalid phone number for submission:', fullNumberToCall);
-        setIsPhoneNumberValid(false);
+        console.error('[handleCallSubmit] Invalid phone number for submission:', fullNumberToCall);
+        setIsPhoneNumberValid(false); 
         return;
     }
     
+    // If validation passed, use the validated E.164 number
+    // console.log(`[handleCallSubmit] Validation passed. Calling startCall with E.164: ${validation.e164Number}`);
     await startCall(validation.e164Number);
   };
 
+  // Start call function
   const startCall = async (e164Number: string) => {
-    // First, ensure we have microphone access before making the call
+    // console.log(`[startCall] Received E.164 number: ${e164Number}`);
+    // First, ensure we have microphone access
     if (micPermission !== 'granted') {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         stream.getTracks().forEach(track => track.stop());
         setMicPermission('granted');
       } catch (err) {
-        console.error('Failed to get microphone access:', err);
+        console.error('[startCall] Failed to get microphone access:', err);
         setMicPermission('denied');
         return;
       }
     }
     
+    // console.log(`[startCall] Calling makeCall hook function with: ${e164Number}`);
     await makeCall(e164Number);
   };
 
