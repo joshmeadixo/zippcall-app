@@ -37,6 +37,7 @@ export default function VoiceCall({
   const [selectedCountry, setSelectedCountry] = useState<Country>('US');
   const [initializationStartTime] = useState<number>(Date.now());
   const [showRefreshButton, setShowRefreshButton] = useState<boolean>(false);
+  const [isReinitializing, setIsReinitializing] = useState<boolean>(false);
 
   const {
     isReady,
@@ -44,11 +45,14 @@ export default function VoiceCall({
     isConnected,
     isAccepted,
     error,
+    waitingForMicPermission,
     makeCall,
     hangupCall,
     answerCall,
     rejectCall,
-    call
+    call,
+    requestMicrophonePermission,
+    reinitializeDevice
   } = useTwilioDevice({ userId });
 
   // Check for incoming calls
@@ -58,14 +62,20 @@ export default function VoiceCall({
     }
   }, [call, isConnected, isConnecting, isIncomingCall]);
 
-  // Update call start time and handle call end - **MODIFIED TO REDUCE RE-RENDERS**
+  // Update call start time and handle call end
   useEffect(() => {
-    // Only set call start time when call is first accepted
-    if (isAccepted && !callStartTime) {
-      setCallStartTime(Date.now());
+    // Set call start time for connected calls
+    if (isConnected && isAccepted) {
+      // Only set if not already set
+      if (!callStartTime) {
+        const now = Date.now();
+        console.log('[VoiceCall] Setting call start time:', now);
+        setCallStartTime(now);
+      }
     } 
-    // Only handle call end when we have a call that has ended
-    else if (!isConnected && callStartTime && !isConnecting) {
+    // Handle call ending
+    else if (!isConnected && !isConnecting && callStartTime) {
+      console.log('[VoiceCall] Call ended, creating call history entry');
       // Call ended, save to history
       const newCall: CallHistoryEntry = {
         id: Date.now().toString(),
@@ -206,6 +216,16 @@ export default function VoiceCall({
   const handleRefresh = () => {
     window.location.reload();
   };
+  
+  // Function to reinitialize the device without refreshing
+  const handleReinitialize = () => {
+    setIsReinitializing(true);
+    reinitializeDevice();
+    // Reset the flag after a delay
+    setTimeout(() => {
+      setIsReinitializing(false);
+    }, 3000);
+  };
 
   return (
     <div className="bg-white shadow-lg rounded-lg max-w-md mx-auto overflow-hidden">
@@ -229,7 +249,44 @@ export default function VoiceCall({
             <p className="font-medium">Error Initializing Device:</p>
             <p>{error}</p>
             {error.includes('Microphone access') && (
-                 <p className="mt-1">Please grant microphone permission in your browser settings and refresh.</p>
+              <div className="mt-3">
+                <p className="mb-2">Please grant microphone permission to use the phone.</p>
+                <button 
+                  onClick={() => requestMicrophonePermission()}
+                  className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-medium transition-colors flex items-center"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  </svg>
+                  Request Microphone Access
+                </button>
+              </div>
+            )}
+            {error.includes('no longer valid') && (
+              <div className="mt-3">
+                <p className="mb-2">The device needs to be reinitialized.</p>
+                <div className="flex space-x-2">
+                  <button 
+                    onClick={handleReinitialize}
+                    disabled={isReinitializing}
+                    className={`px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-medium transition-colors flex items-center ${isReinitializing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    {isReinitializing ? 'Reinitializing...' : 'Reinitialize Device'}
+                  </button>
+                  <button 
+                    onClick={handleRefresh}
+                    className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md text-sm font-medium transition-colors flex items-center"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh Page
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -254,11 +311,12 @@ export default function VoiceCall({
                     {isConnecting ? 'Connecting...' : isAccepted ? 'In Progress' : 'Ringing...'}
                   </p>
                   
-                  {callStartTime && isAccepted && (
-                    <div className="mt-2">
-                      <CallTimer startTime={callStartTime} isActive={isConnected} />
-                    </div>
-                  )}
+                  <div className="mt-2">
+                    <CallTimer 
+                      startTime={callStartTime} 
+                      isActive={isConnected && isAccepted && callStartTime !== null} 
+                    />
+                  </div>
                 </div>
                 
                 <AudioVisualizer isActive={isConnected} />
@@ -412,15 +470,51 @@ export default function VoiceCall({
 
         {!isReady && !error && (
             <div className="text-center py-4">
-                <div className="animate-pulse mb-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mx-auto text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                    </svg>
+                {/* Spinning loader */}
+                <div className="flex justify-center items-center mb-3">
+                    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
                 </div>
-                <p className="text-gray-600 mb-1 font-medium">Initializing Phone...</p>
-                <p className="text-xs text-gray-500 mb-3">Please wait while we establish a secure connection</p>
                 
-                {showRefreshButton && (
+                {waitingForMicPermission ? (
+                  <>
+                    <p className="text-gray-600 mb-1 font-medium">Waiting for Microphone Permission...</p>
+                    <p className="text-xs text-gray-500 mb-3">Please allow microphone access in your browser prompt</p>
+                    
+                    {/* Microphone animation */}
+                    <div className="flex justify-center mb-4">
+                      <div className="relative w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-500 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                        </svg>
+                      </div>
+                    </div>
+                    
+                    <div className="text-xs text-gray-500 mb-2">
+                      This permission is required to make and receive calls
+                    </div>
+                    
+                    <button 
+                      onClick={() => requestMicrophonePermission()}
+                      className="px-3 py-1.5 mt-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-medium transition-colors"
+                    >
+                      Request Permission Again
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-gray-600 mb-1 font-medium">Initializing Phone...</p>
+                    <p className="text-xs text-gray-500 mb-3">Please wait while we establish a secure connection</p>
+                    
+                    {/* Loading dots */}
+                    <div className="flex justify-center space-x-2 mb-4">
+                      <div className="h-2 w-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="h-2 w-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="h-2 w-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    </div>
+                  </>
+                )}
+                
+                {showRefreshButton && !waitingForMicPermission && (
                     <div className="mt-4">
                         <p className="text-sm text-amber-600 mb-2">Initialization is taking longer than expected.</p>
                         <button 
@@ -433,7 +527,9 @@ export default function VoiceCall({
                 )}
                 
                 <div className="mt-4 text-xs text-gray-400">
-                    Initializing for {Math.floor((Date.now() - initializationStartTime) / 1000)}s
+                    {waitingForMicPermission 
+                      ? "Waiting for microphone access..." 
+                      : `Initializing for ${Math.floor((Date.now() - initializationStartTime) / 1000)}s`}
                 </div>
             </div>
         )}

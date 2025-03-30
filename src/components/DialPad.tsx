@@ -16,6 +16,22 @@ interface AudioContextWindow extends Window {
 // Single AudioContext shared across all key presses
 let sharedAudioContext: AudioContext | null = null;
 
+// Add DTMF tone frequencies
+const DTMF_TONES: Record<string, [number, number]> = {
+  '1': [697, 1209],
+  '2': [697, 1336],
+  '3': [697, 1477],
+  '4': [770, 1209],
+  '5': [770, 1336],
+  '6': [770, 1477],
+  '7': [852, 1209],
+  '8': [852, 1336],
+  '9': [852, 1477],
+  '0': [941, 1336],
+  '*': [941, 1209],
+  '#': [941, 1477]
+};
+
 const DialPad = ({ onDigitPressed, onBackspace, disabled = false }: DialPadProps) => {
   const dialPadKeys = [
     ['1', '2', '3'],
@@ -28,132 +44,134 @@ const DialPad = ({ onDigitPressed, onBackspace, disabled = false }: DialPadProps
   const oscillators = useRef<OscillatorNode[]>([]);
   const gainNode = useRef<GainNode | null>(null);
   
-  // Ensure AudioContext is created and available
-  const ensureAudioContext = useCallback(() => {
-    if (!sharedAudioContext) {
-      try {
-        const windowWithAudioContext = window as unknown as AudioContextWindow;
-        const AudioContextClass = windowWithAudioContext.AudioContext || windowWithAudioContext.webkitAudioContext;
-        sharedAudioContext = new AudioContextClass();
-        
-        // Auto-resume context on user interaction if suspended
-        document.addEventListener('click', function resumeAudioContext() {
-          if (sharedAudioContext && sharedAudioContext.state === 'suspended') {
-            sharedAudioContext.resume().catch(console.error);
-          }
-        }, { once: true });
-      } catch (err) {
-        console.error('Failed to create AudioContext for DTMF tones:', err);
-        return null;
+  // Initialize audio on mount
+  useEffect(() => {
+    const initAudio = () => {
+      // Try to initialize audio context
+      if (!sharedAudioContext) {
+        try {
+          const windowWithAudioContext = window as unknown as AudioContextWindow;
+          const AudioContextClass = windowWithAudioContext.AudioContext || windowWithAudioContext.webkitAudioContext;
+          sharedAudioContext = new AudioContextClass();
+          console.log('AudioContext initialized on page load');
+        } catch (err) {
+          console.error('Failed to create AudioContext on page load:', err);
+        }
       }
-    }
-    
-    // Try to resume if suspended
-    if (sharedAudioContext && sharedAudioContext.state === 'suspended') {
-      sharedAudioContext.resume().catch(console.error);
-    }
-    
-    return sharedAudioContext;
+  
+      // Try to resume if suspended
+      if (sharedAudioContext && sharedAudioContext.state === 'suspended') {
+        sharedAudioContext.resume().then(() => {
+          console.log('AudioContext resumed on page load');
+        }).catch(err => {
+          console.error('Failed to resume AudioContext:', err);
+        });
+      }
+    };
+  
+    // Add interaction listeners to unlock audio
+    const unlockAudio = () => {
+      console.log('User interaction detected, unlocking audio...');
+      initAudio();
+    };
+  
+    // Try initial setup
+    initAudio();
+  
+    // Add user interaction listeners
+    document.addEventListener('click', unlockAudio, { once: true });
+    document.addEventListener('touchstart', unlockAudio, { once: true });
+    document.addEventListener('keydown', unlockAudio, { once: true });
+  
+    return () => {
+      // Clean up the listeners
+      document.removeEventListener('click', unlockAudio);
+      document.removeEventListener('touchstart', unlockAudio);
+      document.removeEventListener('keydown', unlockAudio);
+    };
   }, []);
-
+  
   // Play DTMF tone when a key is pressed
   const playTone = useCallback((digit: string) => {
     if (disabled) return;
+    console.log(`Attempting to play tone for digit: ${digit}`);
     
-    let freq1 = 0;
-    let freq2 = 0;
-    
-    // DTMF frequency pairs
-    switch (digit) {
-      case '1': freq1 = 697; freq2 = 1209; break;
-      case '2': freq1 = 697; freq2 = 1336; break;
-      case '3': freq1 = 697; freq2 = 1477; break;
-      case '4': freq1 = 770; freq2 = 1209; break;
-      case '5': freq1 = 770; freq2 = 1336; break;
-      case '6': freq1 = 770; freq2 = 1477; break;
-      case '7': freq1 = 852; freq2 = 1209; break;
-      case '8': freq1 = 852; freq2 = 1336; break;
-      case '9': freq1 = 852; freq2 = 1477; break;
-      case '0': freq1 = 941; freq2 = 1336; break;
-      case '*': freq1 = 941; freq2 = 1209; break;
-      case '#': freq1 = 941; freq2 = 1477; break;
-      default: return;
-    }
-    
+    // Simple and direct approach
     try {
-      // Get audio context
-      const audioCtx = ensureAudioContext();
-      if (!audioCtx) return;
+      // Initialize audio context on first use
+      if (!sharedAudioContext) {
+        try {
+          const windowWithAudioContext = window as unknown as AudioContextWindow;
+          const AudioContextClass = windowWithAudioContext.AudioContext || windowWithAudioContext.webkitAudioContext;
+          sharedAudioContext = new AudioContextClass();
+          console.log('Created new AudioContext');
+        } catch (err) {
+          console.error('Failed to create AudioContext:', err);
+          return;
+        }
+      }
       
-      // Force resume audio context if suspended
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume().catch(err => {
-          console.warn('Failed to resume AudioContext:', err);
+      // Ensure audio context is resumed
+      if (sharedAudioContext.state === 'suspended') {
+        sharedAudioContext.resume().then(() => {
+          console.log('AudioContext resumed successfully');
+          // Try playing the tone again after resume
+          setTimeout(() => playTone(digit), 100);
+        }).catch(err => {
+          console.error('Failed to resume AudioContext:', err);
         });
+        return;
       }
       
-      // Clean up any previous oscillators
-      oscillators.current.forEach(osc => {
-        try {
-          osc.stop();
-          osc.disconnect();
-        } catch {
-          // Ignore errors from already stopped oscillators
-        }
-      });
-      oscillators.current = [];
+      // Get the DTMF frequencies for this digit
+      const [freq1, freq2] = DTMF_TONES[digit] || [0, 0];
+      if (freq1 === 0 || freq2 === 0) return;
       
-      if (gainNode.current) {
-        try {
-          gainNode.current.disconnect();
-        } catch {
-          // Ignore errors from already disconnected nodes
-        }
-      }
+      // Create a new audio context time reference
+      const startTime = sharedAudioContext.currentTime;
+      const stopTime = startTime + 0.3; // 300ms tone (increased from 200ms)
       
-      // Create a new gain node
-      gainNode.current = audioCtx.createGain();
-      gainNode.current.gain.value = 0.25; // Slightly louder for better hearing
+      // Create the oscillators
+      const osc1 = sharedAudioContext.createOscillator();
+      const osc2 = sharedAudioContext.createOscillator();
       
-      // Create oscillators
-      const osc1 = audioCtx.createOscillator();
-      const osc2 = audioCtx.createOscillator();
+      // Create and configure gain node
+      const gainNode = sharedAudioContext.createGain();
+      gainNode.gain.value = 0.5; // Increased from 0.2 for more volume
       
-      // Set frequencies
+      // Configure oscillators
+      osc1.type = 'sine';
       osc1.frequency.value = freq1;
+      
+      osc2.type = 'sine';
       osc2.frequency.value = freq2;
       
-      // Connect nodes
-      osc1.connect(gainNode.current);
-      osc2.connect(gainNode.current);
-      gainNode.current.connect(audioCtx.destination);
+      // Connect graph
+      osc1.connect(gainNode);
+      osc2.connect(gainNode);
+      gainNode.connect(sharedAudioContext.destination);
       
-      // Store oscillators for cleanup
-      oscillators.current.push(osc1, osc2);
+      // Schedule exact start/stop times
+      osc1.start(startTime);
+      osc2.start(startTime);
+      osc1.stop(stopTime);
+      osc2.stop(stopTime);
       
-      // Play tone
-      osc1.start();
-      osc2.start();
-
-      // Log the tone playback
-      console.log(`[DialPad] Playing DTMF tone for digit: ${digit}`);
+      // Log success
+      console.log(`Playing DTMF tone for digit ${digit}: ${freq1}Hz + ${freq2}Hz`);
       
-      // Stop after short duration
+      // Cleanup after tone completes
       setTimeout(() => {
         try {
-          osc1.stop();
-          osc2.stop();
-          osc1.disconnect();
-          osc2.disconnect();
-          if (gainNode.current) gainNode.current.disconnect();
-        } catch {
-          console.warn('Error stopping DTMF tone');
+          gainNode.disconnect();
+        } catch (err) {
+          console.warn('Error during cleanup:', err);
         }
-      }, 150);
+      }, 250);
     } catch (err) {
       console.error('Error playing DTMF tone:', err);
     }
-  }, [disabled, ensureAudioContext]);
+  }, [disabled]);
 
   // Handle key presses for digits
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
