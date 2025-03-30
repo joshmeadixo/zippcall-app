@@ -36,13 +36,25 @@ export interface ValidationResult {
  * @returns ValidationResult object with validation details
  */
 export function validatePhoneNumber(input: string, countryCode: string): ValidationResult {
+  // If input is completely empty, return immediately without error message
   if (!input || input.trim() === '') {
     return { isValid: false, reason: 'EMPTY_INPUT' };
   }
 
+  // If input is just a + sign (country code prefix), don't validate yet
+  if (input.trim() === '+' || input.trim().match(/^\+\d{0,2}$/)) {
+    return { isValid: false, reason: 'INCOMPLETE_INPUT' };
+  }
+
   try {
+    // Ensure the input has a proper format with + for E.164
+    let formattedInput = input;
+    if (!formattedInput.startsWith('+')) {
+      formattedInput = '+' + formattedInput;
+    }
+
     // Parse the number with context of the user's selected country
-    const parsedNumber = phoneUtil.parse(input, countryCode);
+    const parsedNumber = phoneUtil.parse(formattedInput, countryCode);
     
     // Check if the number is valid
     if (!phoneUtil.isValidNumber(parsedNumber)) {
@@ -64,6 +76,11 @@ export function validatePhoneNumber(input: string, countryCode: string): Validat
     const nationalNumber = parsedNumber.getNationalNumber()?.toString() || '';
     const numberType = phoneUtil.getNumberType(parsedNumber);
     
+    // Additional validation for minimal length (country specific)
+    if (nationalNumber.length < 5) {
+      return { isValid: false, reason: 'TOO_SHORT' };
+    }
+    
     return { 
       isValid: true, 
       e164Number,
@@ -72,6 +89,7 @@ export function validatePhoneNumber(input: string, countryCode: string): Validat
       numberType
     };
   } catch (error) {
+    console.error('Phone validation error:', error);
     return { 
       isValid: false, 
       reason: 'PARSE_ERROR', 
@@ -91,6 +109,10 @@ export function getValidationErrorMessage(result: ValidationResult): string {
   switch (result.reason) {
     case 'EMPTY_INPUT':
       return 'Please enter a phone number';
+    case 'INCOMPLETE_INPUT':
+      return 'Please enter a complete phone number';
+    case 'TOO_SHORT':
+      return 'This phone number is too short';
     case 'INVALID_NUMBER':
       return 'This phone number appears to be invalid';
     case 'WRONG_REGION':

@@ -10,7 +10,7 @@ import CallHistory, { CallHistoryEntry } from './CallHistory';
 import PhoneInputWithFlag from './phone/PhoneInput';
 import PhoneInputCountry from './phone/PhoneInputCountry';
 import { validatePhoneNumber } from '@/utils/phoneValidation';
-import { Country } from 'react-phone-number-input';
+import { Country, getCountryCallingCode } from 'react-phone-number-input';
 
 interface VoiceCallProps {
   userId: string;
@@ -167,38 +167,16 @@ export default function VoiceCall({
     setSelectedCountry(country);
     setCountrySelected(true);
     
-    // Get the calling code for this country
-    const callingCodes: Record<string, string> = {
-      'US': '1',
-      'CA': '1',
-      'GB': '44',
-      'AU': '61',
-      'DE': '49',
-      'FR': '33',
-      'ES': '34',
-      'IT': '39',
-      'CN': '86',
-      'JP': '81',
-      'IN': '91',
-      'BR': '55',
-      'RU': '7',
-      'MX': '52',
-      // Add more as needed
-    };
+    // Get the calling code for this country using the built-in function
+    const callingCode = getCountryCallingCode(country);
     
-    // Get the calling code or use default fallback
-    const callingCode = callingCodes[country] || '1';
+    // Always set the phone number with the new country code
+    // This ensures the phone field reflects the selected country immediately
+    setPhoneNumber(`+${callingCode}`);
     
-    // If phone number is empty or just has a different country code, update it
-    // This preserves any number the user has already entered
-    if (!phoneNumber || phoneNumber.trim() === '' || phoneNumber.match(/^\+\d{1,3}$/)) {
-      setPhoneNumber(`+${callingCode}`);
-    } else if (phoneNumber.startsWith('+')) {
-      // If it already starts with +, replace the country code part
-      const currentDigits = phoneNumber.substring(phoneNumber.indexOf(' ') !== -1 ? 
-        phoneNumber.indexOf(' ') : 1);
-      setPhoneNumber(`+${callingCode}${currentDigits}`);
-    }
+    // Reset validation state since the country changed
+    setIsPhoneNumberValid(false);
+    setValidatedE164Number('');
   };
 
   const handleCallSubmit = async (e: FormEvent) => {
