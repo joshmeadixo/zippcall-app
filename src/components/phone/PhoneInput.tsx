@@ -68,20 +68,18 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
 
   const handleChange = (newValue: string | undefined) => {
       const incomingValue = newValue || '';
-      let nationalPart = incomingValue;
+      
+      const nationalDigits = incomingValue.replace(/\D/g, ''); 
 
-      const potentialPrefix = `+${getCountryCallingCode(country)}`;
-      if (incomingValue.startsWith(potentialPrefix)) {
-          nationalPart = incomingValue.substring(potentialPrefix.length).trim();
-      }
-      nationalPart = nationalPart.replace(/[\s-()]/g, '');
+      if (nationalDigits !== localNationalNumber) { 
+          setLocalNationalNumber(nationalDigits);
+          onNationalNumberChange(nationalDigits);
 
-      setLocalNationalNumber(nationalPart);
-      onNationalNumberChange(nationalPart);
-      if (!userHasTyped && nationalPart.length > 0) {
-          setUserHasTyped(true);
-      } else if (nationalPart.length === 0) {
-          setUserHasTyped(false);
+          if (!userHasTyped && nationalDigits.length > 0) {
+              setUserHasTyped(true);
+          } else if (nationalDigits.length === 0) {
+              setUserHasTyped(false);
+          }
       }
   };
 
@@ -101,7 +99,7 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
           placeholder={dynamicPlaceholder}
           onFocus={onFocus}
           disabled={disabled}
-          international={false}
+          international={true}
           displayInitialValueAsLocalNumber={true}
           countryCallingCodeEditable={false}
           addInternationalOption={false}

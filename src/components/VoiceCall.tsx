@@ -106,31 +106,42 @@ export default function VoiceCall({
     }
   }, [call, isConnected, isConnecting, isIncomingCall]);
 
-  // Update call start time when call is accepted - **MODIFIED FOR HISTORY**
+  // Update call start time and handle call end - **MODIFIED TO RESET STATE**
   useEffect(() => {
     if (isAccepted && !callStartTime) {
       setCallStartTime(Date.now());
     } else if (!isConnected && callStartTime) {
-      // Call ended, save to history
+      // Call ended, save to history first
       const newCall: CallHistoryEntry = {
         id: Date.now().toString(),
-        // Use the validated E.164 number for history
-        phoneNumber: validatedE164Number || `+${getCountryCallingCode(selectedCountry)}${nationalPhoneNumber}` || 'Unknown', // Fallback if validation didn't run
+        phoneNumber: validatedE164Number || `+${getCountryCallingCode(selectedCountry)}${nationalPhoneNumber}` || 'Unknown', 
         timestamp: callStartTime,
         duration: Math.floor((Date.now() - callStartTime) / 1000),
         direction: isIncomingCall ? 'incoming' : 'outgoing',
-        status: 'answered' // Assuming answered if it was connected
+        status: 'answered' 
       };
-      
       const updatedHistory = [newCall, ...callHistory].slice(0, 50); 
       setCallHistory(updatedHistory);
-      setCallStartTime(null);
       
+      // Notify parent if callback provided
       if (onHistoryUpdate) {
         onHistoryUpdate(updatedHistory);
       }
+
+      // --- Reset state after call ends --- 
+      setCallStartTime(null);
+      setCountrySelected(false);       // Force country re-selection
+      setSelectedCountry('US');        // Reset to default country
+      setNationalPhoneNumber('');      // Clear national number
+      setIsPhoneNumberValid(false);    // Reset validation
+      setValidatedE164Number('');   // Clear validated number
+      // Reset incoming call flag if it was set
+      if (isIncomingCall) {
+        setIsIncomingCall(false);
+      }
+      // --- End of state reset --- 
     }
-  // Ensure dependencies are correct, including validatedE164Number
+  // Ensure dependencies are correct
   }, [isAccepted, isConnected, callStartTime, nationalPhoneNumber, validatedE164Number, selectedCountry, isIncomingCall, callHistory, onHistoryUpdate]);
 
   // Handle call controls
