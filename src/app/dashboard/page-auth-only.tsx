@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import VoiceCall from '@/components/VoiceCall';
+import CallHistory, { CallHistoryEntry } from '@/components/CallHistory';
 
 export default function DashboardAuthOnly() {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
+  const [callHistory, setCallHistory] = useState<CallHistoryEntry[]>([]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -30,68 +32,90 @@ export default function DashboardAuthOnly() {
     return null; // Will redirect in the useEffect
   }
 
+  const handleCallHistoryUpdate = (newHistory: CallHistoryEntry[]) => {
+    setCallHistory(newHistory);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <header className="bg-white shadow-md rounded-lg mb-6">
-            <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-              <div className="flex items-center">
-                <div className="w-10 h-10 relative mr-2">
-                  <Image 
-                    src="/images/zippcall-logo.png" 
-                    alt="ZippCall Logo" 
-                    width={40} 
-                    height={40}
-                    className="object-contain"
-                  />
-                </div>
-                <h1 className="text-2xl font-bold text-blue-500">ZippCall</h1>
-              </div>
-              
-              <div className="flex items-center">
-                <span className="mr-4 text-gray-700">
-                  {user.email || 'User'}
-                </span>
-                <button 
-                  onClick={() => signOut()}
-                  className="bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600 transition-colors"
-                >
-                  Sign Out
+      <header className="bg-white shadow-md">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center">
+            <div className="w-10 h-10 relative mr-2">
+              <Image 
+                src="/images/zippcall-logo.png" 
+                alt="ZippCall Logo" 
+                width={40} 
+                height={40}
+                className="object-contain"
+              />
+            </div>
+            <h1 className="text-2xl font-bold text-blue-500">ZippCall</h1>
+          </div>
+          
+          <div className="flex items-center">
+            <span className="mr-4 text-gray-700">
+              {user.email || 'User'}
+            </span>
+            <button 
+              onClick={() => signOut()}
+              className="bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600 transition-colors"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Left Column - Phone Card */}
+          <div>
+            <VoiceCall 
+              userId={user.uid} 
+              title="Phone" 
+              hideHistory={true}
+              onHistoryUpdate={handleCallHistoryUpdate}
+            />
+          </div>
+          
+          {/* Middle and Right Columns */}
+          <div className="md:col-span-2 space-y-6">
+            {/* Credits Card - Top Right */}
+            <div className="bg-white rounded-lg shadow-md p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Credits</h2>
+                <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1 rounded-md text-sm">
+                  Add Credits
                 </button>
               </div>
-            </div>
-          </header>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div className="bg-white rounded-lg shadow-xl p-8">
-              <h2 className="text-2xl font-bold text-center mb-6">Welcome to ZippCall</h2>
               
-              <div className="text-center mb-8">
-                <p className="text-gray-700">You&apos;re now signed in with:</p>
-                <p className="font-medium mt-2">{user.email}</p>
-                <p className="text-sm text-gray-500 mt-1">User ID: {user.uid.substring(0, 8)}...</p>
-              </div>
-              
-              <div className="grid grid-cols-1 gap-4">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-blue-700 mb-2">Authentication</h4>
-                  <p className="text-sm text-gray-600">
-                    Firebase authentication is working correctly. You can sign out and sign back in.
-                  </p>
+              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                <div>
+                  <p className="text-sm text-gray-500">Available Balance</p>
+                  <p className="text-2xl font-bold text-blue-600">$25.00</p>
                 </div>
-                
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-green-700 mb-2">Twilio Voice SDK</h4>
-                  <p className="text-sm text-gray-600">
-                    Use the call panel to make outbound calls or receive incoming calls.
-                  </p>
+                <div className="text-right">
+                  <p className="text-sm text-gray-500">Rate</p>
+                  <p className="text-md font-medium">$0.01/min</p>
                 </div>
               </div>
             </div>
             
-            <div>
-              <VoiceCall userId={user.uid} />
+            {/* Call History - Bottom Right */}
+            <div className="bg-white rounded-lg shadow-md p-4">
+              <h2 className="text-xl font-semibold mb-4">Call History</h2>
+              {callHistory.length > 0 ? (
+                <CallHistory 
+                  calls={callHistory}
+                  onCallClick={() => {}} 
+                />
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No call history yet</p>
+                  <p className="text-sm mt-2">Start making calls to see your history here</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

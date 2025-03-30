@@ -10,9 +10,17 @@ import CallHistory, { CallHistoryEntry } from './CallHistory';
 
 interface VoiceCallProps {
   userId: string;
+  title?: string;
+  hideHistory?: boolean;
+  onHistoryUpdate?: (history: CallHistoryEntry[]) => void;
 }
 
-export default function VoiceCall({ userId }: VoiceCallProps) {
+export default function VoiceCall({ 
+  userId, 
+  title = "ZippCall", 
+  hideHistory = false,
+  onHistoryUpdate 
+}: VoiceCallProps) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isIncomingCall, setIsIncomingCall] = useState(false);
   const [micPermission, setMicPermission] = useState<'granted' | 'denied' | 'prompt' | 'checking'>('checking');
@@ -103,10 +111,16 @@ export default function VoiceCall({ userId }: VoiceCallProps) {
         status: 'answered'
       };
       
-      setCallHistory(prev => [newCall, ...prev].slice(0, 50)); // Keep last 50 calls
+      const updatedHistory = [newCall, ...callHistory].slice(0, 50); // Keep last 50 calls
+      setCallHistory(updatedHistory);
       setCallStartTime(null);
+      
+      // Notify parent component of history update if callback provided
+      if (onHistoryUpdate) {
+        onHistoryUpdate(updatedHistory);
+      }
     }
-  }, [isAccepted, isConnected, callStartTime, phoneNumber, isIncomingCall]);
+  }, [isAccepted, isConnected, callStartTime, phoneNumber, isIncomingCall, callHistory, onHistoryUpdate]);
 
   // Handle call controls
   const handleToggleMute = (isMuted: boolean) => {
@@ -323,16 +337,18 @@ export default function VoiceCall({ userId }: VoiceCallProps) {
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
       {/* Header */}
       <div className="bg-blue-500 text-white p-4 flex justify-between items-center">
-        <h3 className="text-xl font-semibold">ZippCall</h3>
-        <div className="flex space-x-2">
-          <button 
-            onClick={() => setShowHistory(!showHistory)}
-            className={`p-2 rounded-full ${showHistory ? 'bg-blue-600' : 'hover:bg-blue-600'}`}
-            aria-label="Toggle call history"
-          >
-            <ClockIcon className="h-5 w-5" />
-          </button>
-        </div>
+        <h3 className="text-xl font-semibold">{title}</h3>
+        {!hideHistory && (
+          <div className="flex space-x-2">
+            <button 
+              onClick={() => setShowHistory(!showHistory)}
+              className={`p-2 rounded-full ${showHistory ? 'bg-blue-600' : 'hover:bg-blue-600'}`}
+              aria-label="Toggle call history"
+            >
+              <ClockIcon className="h-5 w-5" />
+            </button>
+          </div>
+        )}
       </div>
       
       {/* Main content */}
@@ -465,7 +481,13 @@ export default function VoiceCall({ userId }: VoiceCallProps) {
                         status: 'rejected'
                       };
                       
-                      setCallHistory(prev => [newCall, ...prev].slice(0, 50));
+                      const updatedHistory = [newCall, ...callHistory].slice(0, 50);
+                      setCallHistory(updatedHistory);
+                      
+                      // Notify parent component if callback provided
+                      if (onHistoryUpdate) {
+                        onHistoryUpdate(updatedHistory);
+                      }
                     }}
                     className="bg-red-500 hover:bg-red-600 text-white rounded-full p-4 flex items-center justify-center"
                     aria-label="Reject call"
