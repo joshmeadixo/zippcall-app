@@ -12,6 +12,7 @@ interface PhoneInputWithFlagProps {
   onFocus?: () => void;
   onValidityChange?: (isValid: boolean, formattedNumber?: string) => void;
   onCountrySelect?: () => void;
+  hideCountrySelector?: boolean;
 }
 
 const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
@@ -21,7 +22,8 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
   className = "",
   onFocus,
   onValidityChange,
-  onCountrySelect
+  onCountrySelect,
+  hideCountrySelector = false
 }) => {
   const [formattedValue, setFormattedValue] = useState(value);
   const [isValid, setIsValid] = useState(true);
@@ -130,6 +132,7 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
           inputProps={{
             id: "phone-input"
           }}
+          countrySelectComponent={hideCountrySelector ? () => null : undefined}
         />
       </div>
       {!isValid && userHasTyped && formattedValue && (

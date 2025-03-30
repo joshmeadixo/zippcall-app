@@ -118,3 +118,65 @@ body {
   display: inline-block !important;
   visibility: visible !important;
 }
+
+/* Country selector only styling */
+.country-selector-wrapper {
+  margin: 0.5rem 0;
+}
+
+.country-selector-wrapper .PhoneInput {
+  display: flex;
+  align-items: center;
+  background-color: #ffffff;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+  padding: 0.75rem;
+}
+
+.country-selector-wrapper .PhoneInputCountry {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.country-selector-wrapper .PhoneInputCountryIcon {
+  width: 2rem;
+  height: 1.5rem;
+  border-radius: 0.25rem;
+  overflow: hidden;
+  margin-right: 0.75rem;
+}
+
+.country-selector-wrapper .PhoneInputCountrySelectArrow {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-style: solid;
+  border-color: #4b5563;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  margin-left: auto;
+}
+
+.country-selector-wrapper .PhoneInputCountrySelect {
+  position: relative;
+  width: 100%;
+  cursor: pointer;
+  opacity: 1;
+  z-index: 20;
+}
+
+.country-selector-only .PhoneInputInput {
+  display: none !important;
+}
+
+/* Enhanced country selector dropdown */
+.country-select-dropdown {
+  padding: 0.75rem !important;
+  font-size: 1rem !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.country-select-dropdown option {
+  padding: 0.5rem !important;
+}

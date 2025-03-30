@@ -8,7 +8,9 @@ import CallControls from './CallControls';
 import AudioVisualizer from './AudioVisualizer';
 import CallHistory, { CallHistoryEntry } from './CallHistory';
 import PhoneInputWithFlag from './phone/PhoneInput';
+import PhoneInputCountry from './phone/PhoneInputCountry';
 import { validatePhoneNumber } from '@/utils/phoneValidation';
+import { Country } from 'react-phone-number-input';
 
 interface VoiceCallProps {
   userId: string;
@@ -492,14 +494,50 @@ export default function VoiceCall({
               // Idle phone view with dial pad
               <div>
                 {!countrySelected && (
-                  <div className="mb-6 text-center p-4 bg-blue-50 rounded-lg">
+                  <div className="mb-4 text-center p-4 bg-blue-50 rounded-lg">
                     <GlobeAmericasIcon className="h-8 w-8 text-blue-500 mx-auto mb-2" />
                     <p className="font-medium text-blue-800">Please select a country first</p>
                     <p className="text-sm text-blue-600 mt-1">
-                      Click on the flag or country dropdown below and select your destination country to enable dialing
+                      Select your destination country below to enable dialing
                     </p>
                   </div>
                 )}
+                
+                {/* Separate country selector */}
+                <div className={`mb-4 p-3 rounded-lg border ${countrySelected ? 'border-green-300 bg-green-50' : 'border-blue-300 bg-blue-50'}`}>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {countrySelected ? "Selected Country" : "Select Country"}
+                    </label>
+                    {countrySelected && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        <svg className="mr-1 h-3 w-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        Selected
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="mt-1">
+                    <div className="max-w-xs mx-auto">
+                      <PhoneInputCountry
+                        international
+                        countryCallingCodeEditable={false}
+                        defaultCountry="US"
+                        value=""
+                        onChange={() => {}}
+                        onCountryChange={(country: Country | undefined) => {
+                          if (country) {
+                            handleCountrySelection();
+                          }
+                        }}
+                        className="country-selector-only"
+                        inputClass="hidden"
+                      />
+                    </div>
+                  </div>
+                </div>
                 
                 <div className="mb-6 relative">
                   <PhoneInputWithFlag
@@ -509,6 +547,7 @@ export default function VoiceCall({
                     onFocus={() => {}}
                     onValidityChange={handlePhoneValidityChange}
                     onCountrySelect={handleCountrySelection}
+                    hideCountrySelector={true}
                   />
                   {phoneNumber && (
                     <button
