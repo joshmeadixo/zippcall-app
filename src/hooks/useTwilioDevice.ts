@@ -31,9 +31,21 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
     if (!userId) return;
 
     let isMounted = true;
+    let localStream: MediaStream | null = null;
     
     const initDevice = async () => {
       try {
+        // First, ensure we have microphone access before initializing
+        try {
+          // This will trigger the browser's permission prompt if needed
+          localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          console.log('Microphone access granted');
+        } catch (err) {
+          console.error('Error accessing microphone:', err);
+          if (isMounted) setError('Microphone access is required for calls');
+          return;
+        }
+
         // Fetch a token from our API
         const response = await fetch('/api/twilio-token', {
           method: 'POST',
@@ -99,6 +111,10 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
       isMounted = false;
       if (device) {
         device.destroy();
+      }
+      // Stop any media tracks if we had a stream
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
       }
     };
   }, [userId, device]);
