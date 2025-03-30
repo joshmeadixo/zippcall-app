@@ -56,3 +56,39 @@ body {
 .phone-input-wrapper .PhoneInputInput::placeholder {
   color: rgb(156, 163, 175);
 }
+
+/* Enhanced styling for country dropdown */
+.PhoneInputCountrySelect {
+  position: relative;
+}
+
+.PhoneInputCountrySelect option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 8px;
+}
+
+/* Make the dropdown flags more visible */
+.PhoneInputCountrySelectDropdown {
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  overflow-y: auto;
+  max-height: 300px;
+}
+
+.PhoneInputCountrySelectOption {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+}
+
+.PhoneInputCountrySelectOption .PhoneInputCountryFlag {
+  margin-right: 10px;
+  width: 24px;
+  height: 18px;
+  object-fit: cover;
+  border-radius: 2px;
+}

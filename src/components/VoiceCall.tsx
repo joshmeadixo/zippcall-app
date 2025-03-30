@@ -171,26 +171,10 @@ export default function VoiceCall({
       // Send DTMF tone during call
       call.sendDigits(digit);
     } else {
-      // Properly insert digit at cursor position for phone input
-      const phoneInput = document.getElementById('phone-input') as HTMLInputElement;
-      if (phoneInput) {
-        const start = phoneInput.selectionStart || phoneInput.value.length;
-        const end = phoneInput.selectionEnd || phoneInput.value.length;
-        const value = phoneInput.value;
-        
-        // Insert digit at cursor position
-        const newValue = value.substring(0, start) + digit + value.substring(end);
-        setPhoneNumber(newValue);
-        
-        // Set cursor position after the inserted digit
-        setTimeout(() => {
-          phoneInput.focus();
-          phoneInput.setSelectionRange(start + 1, start + 1);
-        }, 0);
-      } else {
-        // Fallback to appending the digit
-        setPhoneNumber(prev => prev + digit);
-      }
+      // When using the dialer, simply append the digit
+      // This ensures we don't interfere with the country code handling 
+      // which is managed by the PhoneInputWithFlag component
+      setPhoneNumber(prev => prev + digit);
     }
   };
 
@@ -228,6 +212,10 @@ export default function VoiceCall({
       // Fallback to removing last character
       setPhoneNumber(prev => prev.slice(0, -1));
     }
+  };
+
+  const handleClearNumber = () => {
+    setPhoneNumber('');
   };
 
   const handleHistoryCallClick = (number: string) => {
@@ -436,7 +424,7 @@ export default function VoiceCall({
                     <div className="mt-2">
                       <DialPad 
                         onDigitPressed={handleDigitPressed}
-                        onBackspace={() => {}}
+                        onBackspace={handleBackspace}
                       />
                     </div>
                   )}
@@ -529,7 +517,16 @@ export default function VoiceCall({
                   onBackspace={handleBackspace}
                 />
                 
-                <div className="mt-6 flex justify-center">
+                <div className="mt-4 flex justify-center space-x-4">
+                  <button
+                    onClick={handleClearNumber}
+                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md text-sm font-medium"
+                  >
+                    Clear Number
+                  </button>
+                </div>
+                
+                <div className="mt-4 flex justify-center">
                   <button
                     onClick={handleCallSubmit}
                     disabled={!phoneNumber.trim() || !isReady}

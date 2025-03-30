@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import 'react-phone-number-input/style.css';
 import PhoneInputWithCountry from 'react-phone-number-input';
 import { isPossiblePhoneNumber, parsePhoneNumber, CountryCode } from 'libphonenumber-js';
+import flags from 'react-phone-number-input/flags';
 
 interface PhoneInputWithFlagProps {
   value: string;
@@ -72,7 +73,11 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
           onFocus={onFocus}
           addInternationalOption={false}
           limitMaxLength={true}
+          flags={flags}
           className={`${isValid ? '' : 'border-red-500 border-2'} ${className}`}
+          countrySelectProps={{
+            arrowComponent: () => <span className="PhoneInputCountrySelectArrow" />
+          }}
         />
       </div>
       {!isValid && formattedValue && (
