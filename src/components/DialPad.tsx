@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
-import { BackspaceIcon, PlusIcon } from '@heroicons/react/24/solid';
+import { BackspaceIcon } from '@heroicons/react/24/solid';
 
 interface DialPadProps {
   onDigitPressed: (digit: string) => void;
@@ -96,7 +96,7 @@ const DialPad = ({ onDigitPressed, onBackspace, disabled = false }: DialPadProps
     if (disabled) return;
     
     const key = e.key;
-    if (/^[0-9*#+]$/.test(key)) { // Added + to the regex
+    if (/^[0-9*#]$/.test(key)) { // Removed + from the regex
       onDigitPressed(key);
       playTone(key);
     } else if (key === 'Backspace') {
@@ -142,21 +142,7 @@ const DialPad = ({ onDigitPressed, onBackspace, disabled = false }: DialPadProps
         ))}
       </div>
       
-      <div className="mt-4 flex justify-center space-x-4">
-        {/* Added + button */}
-        <button
-          className={`rounded-full h-16 w-16 flex items-center justify-center
-            ${disabled 
-              ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
-              : 'bg-blue-100 text-blue-700 hover:bg-blue-200 active:bg-blue-300'
-            } transition-colors`}
-          onClick={() => handleDigitClick('+')}
-          disabled={disabled}
-          aria-label="Add plus sign"
-        >
-          <PlusIcon className="h-6 w-6" />
-        </button>
-        
+      <div className="mt-4 flex justify-center">
         <button
           className={`rounded-full h-16 w-16 flex items-center justify-center
             ${disabled 
