@@ -46,6 +46,25 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
         return;
       }
       
+      // --- Explicitly check/request mic permission upfront --- 
+      try {
+          console.log('[useTwilioDevice] Attempting getUserMedia for permission prompt...');
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach(track => track.stop());
+          console.log('[useTwilioDevice] Microphone access seems available or granted.');
+      } catch (permErr) {
+          console.error('[useTwilioDevice] Microphone permission denied or error:', permErr);
+          if (isMounted) {
+              const message = permErr instanceof Error ? permErr.message : 'Unknown permission error';
+              setError(`Microphone access is required: ${message}`);
+              setIsReady(false); 
+              setDevice(null);
+          }
+          return; // Stop initialization
+      }
+      // --- End of permission check ---
+      
+      // Proceed only if permission was likely granted
       try {
         console.log('[useTwilioDevice] Fetching Twilio token...');
         const response = await fetch('/api/twilio-token', {
@@ -79,7 +98,7 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
           setError(null);
         }
       } catch (err: unknown) {
-        console.error('[useTwilioDevice] Initialization failed:', err);
+        console.error('[useTwilioDevice] Initialization failed (after permission check):', err);
         if (isMounted) {
           const message = err instanceof Error ? err.message : 'Unknown error during init';
           setError(`Initialization failed: ${message}`);
