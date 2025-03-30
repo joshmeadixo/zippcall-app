@@ -77,6 +77,50 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
     console.log('[useTwilioDevice] Initialize Effect Triggered. userId:', userId);
     let isMounted = true;
     let localDevice: Device | null = null; // Keep local reference for cleanup
+    let initializationTimeout: NodeJS.Timeout | null = null;
+
+    // Check browser compatibility
+    const checkBrowserCompatibility = () => {
+      const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      const isFirefox = navigator.userAgent.indexOf("Firefox") > -1;
+      const isEdge = navigator.userAgent.indexOf("Edg") > -1;
+      
+      console.log('[useTwilioDevice] Browser detection:', { 
+        isChrome, isSafari, isFirefox, isEdge, 
+        userAgent: navigator.userAgent
+      });
+      
+      return isChrome || isFirefox || isEdge || isSafari;
+    };
+
+    // Check if API is available
+    const checkApiAvailability = async () => {
+      try {
+        console.log('[useTwilioDevice] Checking API availability...');
+        const response = await fetch('/api/health-check', { 
+          method: 'GET',
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        console.log('[useTwilioDevice] API health check response:', response.status);
+        return response.ok;
+      } catch (error) {
+        console.error('[useTwilioDevice] API health check failed:', error);
+        return false;
+      }
+    };
+
+    // Set a timeout for initialization
+    initializationTimeout = setTimeout(() => {
+      if (isMounted && !isReady) {
+        console.error('[useTwilioDevice] Initialization timed out after 15 seconds');
+        // Try to check API availability to help with debugging
+        checkApiAvailability().then(available => {
+          console.log('[useTwilioDevice] API availability status during timeout:', available);
+          setError(`Connection timed out. API ${available ? 'seems available' : 'may be unavailable'}. Please refresh and try again.`);
+        });
+      }
+    }, 15000);
 
     const initializeDevice = async () => {
       if (!userId) {
@@ -84,12 +128,19 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
         return;
       }
       
+      // Check browser compatibility first
+      const isBrowserCompatible = checkBrowserCompatibility();
+      if (!isBrowserCompatible) {
+        console.warn('[useTwilioDevice] Browser may not be fully compatible with Twilio Voice SDK');
+        // Continue anyway but log the warning
+      }
+      
       // --- Explicitly check/request mic permission upfront --- 
       try {
           console.log('[useTwilioDevice] Attempting getUserMedia for permission prompt...');
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           stream.getTracks().forEach(track => track.stop());
-          console.log('[useTwilioDevice] Microphone access seems available or granted.');
+          console.log('[useTwilioDevice] Microphone access successfully granted.');
           
           // Initialize AudioContext after mic permission
           try {
@@ -113,38 +164,103 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
       
       // Proceed with audio and mic ready
       try {
-        console.log('[useTwilioDevice] Fetching Twilio token...');
-        const response = await fetch('/api/twilio-token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId }),
-        });
-        if (!response.ok) {
-          throw new Error(`Failed to fetch token: ${response.statusText}`);
+        // Verify API is available before trying to fetch token
+        const isApiAvailable = await checkApiAvailability();
+        if (!isApiAvailable) {
+          console.error('[useTwilioDevice] API health-check failed, API might be unavailable');
+          // Continue anyway, let the token fetch handle any errors
         }
-        const data = await response.json();
+        
+        console.log('[useTwilioDevice] Fetching Twilio token...');
+        let response;
+        try {
+          response = await fetch('/api/twilio-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId }),
+          });
+          
+          console.log('[useTwilioDevice] Token API response received:', response.status, response.statusText);
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch token: ${response.status} ${response.statusText}`);
+          }
+        } catch (fetchErr) {
+          console.error('[useTwilioDevice] Token fetch network error:', fetchErr);
+          throw new Error(`Network error while fetching token: ${fetchErr instanceof Error ? fetchErr.message : 'Unknown error'}`);
+        }
+        
+        let data;
+        try {
+          data = await response.json();
+          console.log('[useTwilioDevice] Token response parsed successfully');
+        } catch (jsonErr) {
+          console.error('[useTwilioDevice] Failed to parse token response as JSON:', jsonErr);
+          throw new Error('Invalid response from token service');
+        }
+        
+        if (!data || !data.token) {
+          console.error('[useTwilioDevice] Token response missing token:', data);
+          throw new Error('No token returned from service');
+        }
+        
         const token = data.token;
         console.log('[useTwilioDevice] Token fetched successfully.');
 
-        if (!isMounted) return; // Prevent setting state if unmounted
+        if (!isMounted) {
+          console.log('[useTwilioDevice] Component unmounted during initialization, aborting');
+          return;
+        }
 
         console.log('[useTwilioDevice] Creating new Twilio Device instance...');
-        localDevice = new Device(token, {
-          logLevel: 1, // 0 = errors, 1 = warnings, 2 = info, 3 = debug, 4 = trace
-          codecPreferences: [Call.Codec.Opus, Call.Codec.PCMU],
-        });
+        try {
+          // Try with minimal options first
+          localDevice = new Device(token, {
+            logLevel: 2, // Increasing log level to better debug
+          });
+          console.log('[useTwilioDevice] Twilio Device instance created successfully');
+        } catch (deviceErr) {
+          console.error('[useTwilioDevice] Error creating Twilio Device:', deviceErr);
+          throw new Error(`Failed to create Twilio Device: ${deviceErr instanceof Error ? deviceErr.message : 'Unknown error'}`);
+        }
         
         // Ensure the device has time to initialize
-        await localDevice.register();
-        console.log('[useTwilioDevice] Device registered.');
+        try {
+          console.log('[useTwilioDevice] Registering device...');
+          
+          // Add a listener for the 'ready' event before registering
+          localDevice.on('ready', () => {
+            console.log('[useTwilioDevice] Device emitted ready event');
+            if (isMounted) {
+              setIsReady(true);
+              // Clear the timeout since initialization was successful
+              if (initializationTimeout) {
+                clearTimeout(initializationTimeout);
+                initializationTimeout = null;
+              }
+            }
+          });
+          
+          // Add an error listener
+          localDevice.on('error', (err) => {
+            console.error('[useTwilioDevice] Device emitted error during initialization:', err);
+          });
+          
+          await localDevice.register();
+          console.log('[useTwilioDevice] Device registered successfully.');
+        } catch (registerErr) {
+          console.error('[useTwilioDevice] Error registering Twilio Device:', registerErr);
+          throw new Error(`Failed to register Twilio Device: ${registerErr instanceof Error ? registerErr.message : 'Unknown error'}`);
+        }
 
         if (isMounted) {
           setDevice(localDevice);
-          setIsReady(true);
+          // setIsReady(true); - We're now setting this in the 'ready' event handler
           setError(null);
+          console.log('[useTwilioDevice] Device initialization complete, state updated');
         }
       } catch (err: unknown) {
-        console.error('[useTwilioDevice] Initialization failed (after permission check):', err);
+        console.error('[useTwilioDevice] Initialization failed:', err);
         if (isMounted) {
           const message = err instanceof Error ? err.message : 'Unknown error during init';
           setError(`Initialization failed: ${message}`);
@@ -159,6 +275,13 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
     // Cleanup Function
     return () => {
       isMounted = false;
+      
+      // Clear the timeout if it exists
+      if (initializationTimeout) {
+        clearTimeout(initializationTimeout);
+        initializationTimeout = null;
+      }
+      
       console.log('[useTwilioDevice] Cleanup: Destroying device instance...');
       if (localDevice) {
         localDevice.disconnectAll(); // Disconnect active calls
@@ -185,7 +308,7 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
         }
       }
     };
-  }, [userId, ensureAudioContext]); // Added ensureAudioContext as a dependency
+  }, [userId, ensureAudioContext, isReady]);
 
   // Register listeners for device state changes
   useEffect(() => {
@@ -227,12 +350,39 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
     const handleErrorEvent = (error: unknown) => {
       console.error('[useTwilioDevice] Event: Twilio Device Error:', error);
       let errorMessage = 'An unknown error occurred';
+      
       if (isTwilioError(error)) { 
         errorMessage = `Error ${error.code}: ${error.message || '(no message)'}`;
-        // Handle specific codes...
+        
+        // Handle specific error codes
+        switch(error.code) {
+          case 31000:
+            errorMessage = "Twilio Device Error: WebRTC error. Please check browser compatibility.";
+            break;
+          case 31001:
+            errorMessage = "Twilio Device Error: Could not find microphone. Please check your audio settings.";
+            break;
+          case 31002:
+            errorMessage = "Twilio Device Error: Browser does not support microphone access.";
+            break;
+          case 31003:
+            errorMessage = "Twilio Device Error: Permissions error. Please ensure microphone access is granted.";
+            break;
+          case 31005:
+            errorMessage = "Twilio Device Error: Connection to Twilio failed. Please check your internet connection.";
+            break;
+          case 31009:
+            errorMessage = "Twilio Device Error: Token expired. Please refresh the page.";
+            break;
+          case 31205:
+            errorMessage = "Twilio Device Error: Connection failed. Please try again.";
+            break;
+          // Add more specific error codes as needed
+        }
       } else if (error instanceof Error) {
           errorMessage = error.message;
       }
+      
       setError(errorMessage);
       setIsConnecting(false);
       setIsConnected(false);

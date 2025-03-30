@@ -35,6 +35,8 @@ export default function VoiceCall({
   const [validatedE164Number, setValidatedE164Number] = useState<string>('');
   const [countrySelected, setCountrySelected] = useState<boolean>(false);
   const [selectedCountry, setSelectedCountry] = useState<Country>('US');
+  const [initializationStartTime] = useState<number>(Date.now());
+  const [showRefreshButton, setShowRefreshButton] = useState<boolean>(false);
 
   const {
     isReady,
@@ -93,6 +95,17 @@ export default function VoiceCall({
     }
   // Ensure dependencies are correct
   }, [isAccepted, isConnected, callStartTime, nationalPhoneNumber, validatedE164Number, selectedCountry, isIncomingCall, callHistory, onHistoryUpdate]);
+
+  // Check for initialization taking too long
+  useEffect(() => {
+    if (!isReady && !error) {
+      const timeoutId = setTimeout(() => {
+        setShowRefreshButton(true);
+      }, 10000); // Show refresh button after 10 seconds
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isReady, error]);
 
   // Handle call controls
   const handleToggleMute = (isMuted: boolean) => {
@@ -182,6 +195,11 @@ export default function VoiceCall({
       startCall(number);
       setShowHistory(false);
     }
+  };
+
+  // Function to handle manual refresh
+  const handleRefresh = () => {
+    window.location.reload();
   };
 
   return (
@@ -395,7 +413,23 @@ export default function VoiceCall({
                     </svg>
                 </div>
                 <p className="text-gray-600 mb-1 font-medium">Initializing Phone...</p>
-                <p className="text-xs text-gray-500">Please wait while we establish a secure connection</p>
+                <p className="text-xs text-gray-500 mb-3">Please wait while we establish a secure connection</p>
+                
+                {showRefreshButton && (
+                    <div className="mt-4">
+                        <p className="text-sm text-amber-600 mb-2">Initialization is taking longer than expected.</p>
+                        <button 
+                            onClick={handleRefresh}
+                            className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors"
+                        >
+                            Refresh Page
+                        </button>
+                    </div>
+                )}
+                
+                <div className="mt-4 text-xs text-gray-400">
+                    Initializing for {Math.floor((Date.now() - initializationStartTime) / 1000)}s
+                </div>
             </div>
         )}
       </div>
