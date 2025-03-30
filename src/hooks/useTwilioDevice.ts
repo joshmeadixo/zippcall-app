@@ -128,6 +128,105 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
     };
   }, [userId]); // intentionally omitting 'device' to prevent infinite rerender loops
 
+  // Register listeners for device state changes
+  useEffect(() => {
+    if (!device) return; // Don't register listeners if device isn't ready
+
+    const handleReady = () => {
+      console.log('Twilio Device Ready');
+      setIsReady(true);
+    };
+
+    const handleConnect = (connection: Call) => {
+      console.log('Call connected', connection);
+      setIsConnecting(false);
+      setIsConnected(true);
+      setCall(connection);
+    };
+
+    const handleDisconnect = (connection: Call) => {
+      console.log('Call disconnected', connection);
+      setIsConnecting(false);
+      setIsConnected(false);
+      setIsAccepted(false);
+      setCall(null);
+      setError(null);
+    };
+
+    // Type guard to check if error has a code property
+    function isTwilioError(error: unknown): error is { code: number; message: string } {
+      return (
+        typeof error === 'object' && 
+        error !== null && 
+        'code' in error && typeof (error as { code: unknown }).code === 'number' &&
+        'message' in error && typeof (error as { message: unknown }).message === 'string'
+      );
+    }
+
+    const handleErrorEvent = (error: unknown) => { // Type error as unknown
+      console.error('Twilio Device Error:', error);
+      let errorMessage = 'An unknown error occurred';
+      if (isTwilioError(error)) { // Type guard narrows it down
+        errorMessage = `Error ${error.code}: ${error.message}`;
+        // Handle specific error codes
+        if (error.code === 31205) { 
+          errorMessage = 'Your session expired. Please refresh the page.';
+        } else if (error.code === 31000) { 
+          errorMessage = 'A general connection error occurred.';
+        } else if (error.code === 20104) { 
+          errorMessage = 'Invalid authentication token. Session may be invalid.';
+        } else if (error.code === 31005) { 
+          errorMessage = 'Cannot establish connection. Check your network.';
+        } else if (error.code === 31208) { 
+            errorMessage = 'Authentication failed. Please try again.';
+        }
+      }
+      setError(errorMessage);
+      setIsConnecting(false);
+      setIsConnected(false);
+      setCall(null);
+    };
+
+    const handleIncoming = (connection: Call) => {
+      console.log('Incoming call:', connection);
+      setCall(connection);
+      connection.on('accept', () => {
+        console.log('Incoming call accepted');
+        setIsAccepted(true);
+        setIsConnected(true);
+      });
+      connection.on('reject', () => {
+        console.log('Incoming call rejected');
+        setCall(null);
+        setIsConnected(false);
+      });
+      connection.on('cancel', () => {
+        console.log('Incoming call cancelled by caller');
+        setCall(null);
+        setIsConnected(false);
+      });
+      connection.on('disconnect', () => {
+        console.log('Incoming call disconnected');
+        handleDisconnect(connection);
+      });
+    };
+
+    device.on('ready', handleReady);
+    device.on('connect', handleConnect);
+    device.on('disconnect', handleDisconnect);
+    device.on('error', handleErrorEvent); 
+    device.on('incoming', handleIncoming);
+
+    // Cleanup listeners when the component unmounts or userId changes
+    return () => {
+      device.off('ready', handleReady);
+      device.off('connect', handleConnect);
+      device.off('disconnect', handleDisconnect);
+      device.off('error', handleErrorEvent);
+      device.off('incoming', handleIncoming);
+    };
+  }, [userId]); // intentionally omitting 'device' to prevent infinite rerender loops
+
   // Make an outgoing call
   const makeCall = useCallback(async (to: string) => {
     if (!device) {

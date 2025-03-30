@@ -25,7 +25,7 @@ export default function VoiceCall({
   hideHistory = false,
   onHistoryUpdate 
 }: VoiceCallProps) {
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [nationalPhoneNumber, setNationalPhoneNumber] = useState('');
   const [isIncomingCall, setIsIncomingCall] = useState(false);
   // Define all possible mic permission states
   type MicPermissionState = 'granted' | 'denied' | 'prompt' | 'checking';
@@ -106,7 +106,7 @@ export default function VoiceCall({
     }
   }, [call, isConnected, isConnecting, isIncomingCall]);
 
-  // Update call start time when call is accepted, not just connected
+  // Update call start time when call is accepted - **MODIFIED FOR HISTORY**
   useEffect(() => {
     if (isAccepted && !callStartTime) {
       setCallStartTime(Date.now());
@@ -114,23 +114,24 @@ export default function VoiceCall({
       // Call ended, save to history
       const newCall: CallHistoryEntry = {
         id: Date.now().toString(),
-        phoneNumber: phoneNumber || 'Unknown',
+        // Use the validated E.164 number for history
+        phoneNumber: validatedE164Number || `+${getCountryCallingCode(selectedCountry)}${nationalPhoneNumber}` || 'Unknown', // Fallback if validation didn't run
         timestamp: callStartTime,
         duration: Math.floor((Date.now() - callStartTime) / 1000),
         direction: isIncomingCall ? 'incoming' : 'outgoing',
-        status: 'answered'
+        status: 'answered' // Assuming answered if it was connected
       };
       
-      const updatedHistory = [newCall, ...callHistory].slice(0, 50); // Keep last 50 calls
+      const updatedHistory = [newCall, ...callHistory].slice(0, 50); 
       setCallHistory(updatedHistory);
       setCallStartTime(null);
       
-      // Notify parent component of history update if callback provided
       if (onHistoryUpdate) {
         onHistoryUpdate(updatedHistory);
       }
     }
-  }, [isAccepted, isConnected, callStartTime, phoneNumber, isIncomingCall, callHistory, onHistoryUpdate]);
+  // Ensure dependencies are correct, including validatedE164Number
+  }, [isAccepted, isConnected, callStartTime, nationalPhoneNumber, validatedE164Number, selectedCountry, isIncomingCall, callHistory, onHistoryUpdate]);
 
   // Handle call controls
   const handleToggleMute = (isMuted: boolean) => {
@@ -147,34 +148,17 @@ export default function VoiceCall({
     }
   };
 
-  const handlePhoneValidityChange = (isValid: boolean, formattedNumber?: string) => {
+  const handlePhoneValidityChange = (isValid: boolean, e164Number?: string) => {
     setIsPhoneNumberValid(isValid);
-    if (isValid && formattedNumber) {
-      setValidatedE164Number(formattedNumber);
-    } else {
-      setValidatedE164Number('');
-    }
+    setValidatedE164Number(e164Number || '');
   };
 
-  const handleCountrySelection = () => {
-    setCountrySelected(true);
-  };
-
-  // New function to handle country changes
   const handleCountryChange = (country: Country | undefined) => {
     if (!country) return;
     
     setSelectedCountry(country);
     setCountrySelected(true);
-    
-    // Get the calling code for this country using the built-in function
-    const callingCode = getCountryCallingCode(country);
-    
-    // Always set the phone number with the new country code
-    // This ensures the phone field reflects the selected country immediately
-    setPhoneNumber(`+${callingCode}`);
-    
-    // Reset validation state since the country changed
+    setNationalPhoneNumber('');
     setIsPhoneNumberValid(false);
     setValidatedE164Number('');
   };
@@ -182,30 +166,19 @@ export default function VoiceCall({
   const handleCallSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
-    // Don't allow calls with invalid numbers
-    if (!isPhoneNumberValid || !validatedE164Number) {
-      // Manual validation as a fallback
-      const selectedCountry = document.querySelector('.PhoneInputCountrySelect')?.getAttribute('data-country') || 'US';
-      const validation = validatePhoneNumber(phoneNumber, selectedCountry);
-      
-      if (validation.isValid && validation.e164Number) {
-        setValidatedE164Number(validation.e164Number);
-        await startCall(validation.e164Number);
-      } else {
-        console.error('Invalid phone number:', phoneNumber);
+    const fullNumberToCall = `+${getCountryCallingCode(selectedCountry)}${nationalPhoneNumber}`;
+    
+    const validation = validatePhoneNumber(fullNumberToCall, selectedCountry);
+    if (!validation.isValid || !validation.e164Number) {
+        console.error('Invalid phone number for submission:', fullNumberToCall);
+        setIsPhoneNumberValid(false);
         return;
-      }
-    } else {
-      await startCall(validatedE164Number);
     }
+    
+    await startCall(validation.e164Number);
   };
 
-  const startCall = async (number: string) => {
-    // Phone number is already validated and in E.164 format
-    const formattedNumber = number.trim();
-    
-    setPhoneNumber(formattedNumber);
-    
+  const startCall = async (e164Number: string) => {
     // First, ensure we have microphone access before making the call
     if (micPermission !== 'granted') {
       try {
@@ -219,112 +192,30 @@ export default function VoiceCall({
       }
     }
     
-    await makeCall(formattedNumber);
+    await makeCall(e164Number);
   };
 
   const handleDigitPressed = (digit: string) => {
     if (isConnected && call) {
-      // Send DTMF tone during call
       call.sendDigits(digit);
-    } else {
-      // When using the dialer, preserve the country code
-      // This will keep the country prefix if the phone input is empty or has just the country code
-      if (!phoneNumber || phoneNumber.trim() === '') {
-        // If the field is empty, we need to initialize with the selected country's code
-        // Get the country select element
-        const countrySelect = document.querySelector('.PhoneInputCountrySelect') as HTMLSelectElement;
-        
-        if (countrySelect) {
-          // Get the country code from the select element's value
-          const selectedCountryCode = countrySelect.value || 'US';
-          
-          // Get the country calling code (+1 for US, +44 for GB, etc.)
-          // We'll use a simple mapping for common countries
-          const callingCodes: Record<string, string> = {
-            'US': '1',
-            'CA': '1',
-            'GB': '44',
-            'AU': '61',
-            'DE': '49',
-            'FR': '33',
-            'ES': '34',
-            'IT': '39',
-            'CN': '86',
-            'JP': '81',
-            'IN': '91',
-            'BR': '55',
-            'RU': '7',
-            'MX': '52',
-            // Add more as needed
-          };
-          
-          // Get the calling code or use 1 (US) as fallback
-          const callingCode = callingCodes[selectedCountryCode] || '1';
-          
-          // Create a properly formatted number with the country code first
-          setPhoneNumber(`+${callingCode}${digit}`);
-          
-          // Also focus on the input field to maintain context
-          const phoneInput = document.getElementById('phone-input') as HTMLInputElement;
-          if (phoneInput) {
-            setTimeout(() => {
-              phoneInput.focus();
-            }, 0);
-          }
-        } else {
-          // Fallback if we can't find the country select
-          setPhoneNumber(`+1${digit}`);
-        }
-      } else {
-        // Otherwise just append the digit
-        setPhoneNumber(prev => prev + digit);
-      }
+    } else if (countrySelected) {
+        setNationalPhoneNumber(prev => prev + digit);
     }
   };
 
   const handleBackspace = () => {
-    const phoneInput = document.getElementById('phone-input') as HTMLInputElement;
-    if (phoneInput) {
-      const start = phoneInput.selectionStart || phoneInput.value.length;
-      const end = phoneInput.selectionEnd || phoneInput.value.length;
-      const value = phoneInput.value;
-      
-      if (start === end) {
-        // No selection, delete character before cursor
-        if (start > 0) {
-          const newValue = value.substring(0, start - 1) + value.substring(end);
-          setPhoneNumber(newValue);
-          
-          // Set cursor position
-          setTimeout(() => {
-            phoneInput.focus();
-            phoneInput.setSelectionRange(start - 1, start - 1);
-          }, 0);
-        }
-      } else {
-        // Delete selected text
-        const newValue = value.substring(0, start) + value.substring(end);
-        setPhoneNumber(newValue);
-        
-        // Set cursor position
-        setTimeout(() => {
-          phoneInput.focus();
-          phoneInput.setSelectionRange(start, start);
-        }, 0);
-      }
-    } else {
-      // Fallback to removing last character
-      setPhoneNumber(prev => prev.slice(0, -1));
+    if (countrySelected) {
+        setNationalPhoneNumber(prev => prev.slice(0, -1));
     }
   };
 
   const handleClearNumber = () => {
-    setPhoneNumber('');
+    setNationalPhoneNumber('');
   };
 
   const handleHistoryCallClick = (number: string) => {
     if (!isConnected && !isConnecting) {
-      setPhoneNumber(number);
+      setNationalPhoneNumber(number);
       startCall(number);
       setShowHistory(false);
     }
@@ -440,11 +331,12 @@ export default function VoiceCall({
                 onCallClick={handleHistoryCallClick}
               />
             ) : isConnected || isConnecting ? (
-              // Active call view
+              // Active call view - **MODIFIED TO SHOW E.164 NUMBER**
               <div>
                 <div className="text-center mb-4">
                   <h3 className="text-xl font-bold">
-                    {phoneNumber}
+                    {/* Display the validated E.164 number */} 
+                    {validatedE164Number || 'Connecting...'} 
                   </h3>
                   <p className="text-sm text-gray-500">
                     {isConnecting ? 'Connecting...' : isAccepted ? 'In Progress' : 'Ringing...'}
@@ -523,7 +415,7 @@ export default function VoiceCall({
                 )}
                 
                 {/* Separate country selector */}
-                <div className={`mb-3 p-2 rounded-lg border relative ${countrySelected ? 'border-green-300 bg-green-50' : 'border-blue-300 bg-blue-50'}`}>
+                <div className={`mb-3 p-2 rounded-lg border relative z-20 overflow-visible ${countrySelected ? 'border-green-300 bg-green-50' : 'border-blue-300 bg-blue-50'}`}>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs font-medium text-gray-700">
                       {countrySelected ? "Selected Country" : "Select Country"}
@@ -538,7 +430,7 @@ export default function VoiceCall({
                     )}
                   </div>
                   
-                  <div className="mt-1 relative z-10">
+                  <div className="mt-1 relative z-10 phone-selector-container" style={{ overflow: 'visible' }}>
                     <div className="max-w-xs mx-auto">
                       <PhoneInputCountry
                         international
@@ -556,9 +448,10 @@ export default function VoiceCall({
                 
                 <div className="mb-6 relative">
                   <PhoneInputWithFlag
-                    value={phoneNumber}
-                    onChange={setPhoneNumber}
-                    placeholder="+1 (234) 567-8900"
+                    country={selectedCountry}
+                    nationalNumber={nationalPhoneNumber}
+                    onNationalNumberChange={setNationalPhoneNumber}
+                    placeholder="Enter number"
                     onFocus={() => {
                       if (!countrySelected) {
                         // Alert user to select a country first
@@ -566,17 +459,14 @@ export default function VoiceCall({
                       }
                     }}
                     onValidityChange={handlePhoneValidityChange}
-                    onCountrySelect={handleCountrySelection}
-                    hideCountrySelector={true}
-                    country={selectedCountry}
-                    className={!countrySelected ? "opacity-50" : ""}
                     disabled={!countrySelected}
                   />
-                  {phoneNumber && countrySelected && (
+                  {nationalPhoneNumber && countrySelected && (
                     <button
                       onClick={handleClearNumber}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none p-1 rounded-full hover:bg-gray-200 transition-colors"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none p-1 rounded-full hover:bg-gray-100 transition-colors"
                       aria-label="Clear number"
+                      style={{ zIndex: 5 }}
                     >
                       <XCircleIcon className="h-5 w-5" />
                     </button>
@@ -593,15 +483,16 @@ export default function VoiceCall({
                 <div className="mt-6 flex justify-center">
                   <button
                     onClick={handleCallSubmit}
-                    disabled={!phoneNumber.trim() || !isReady || !isPhoneNumberValid || !countrySelected}
-                    className={`rounded-full p-5 flex items-center justify-center
-                      ${!phoneNumber.trim() || !isReady || !isPhoneNumberValid || !countrySelected
+                    disabled={!isReady || !countrySelected || !nationalPhoneNumber.trim()}
+                    className={`rounded-full p-5 flex items-center justify-center 
+                      ${!isReady || !countrySelected || !nationalPhoneNumber.trim()
                         ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                         : 'bg-green-500 text-white hover:bg-green-600'
                       }`}
                     aria-label="Make call"
                     title={!countrySelected ? "Please select a country first" :
-                           !isPhoneNumberValid && phoneNumber.trim() ? "Please enter a valid phone number" : "Make call"}
+                           !nationalPhoneNumber.trim() ? "Please enter a phone number" :
+                           !isPhoneNumberValid ? "Phone number may be invalid" : "Make call"}
                   >
                     <PhoneArrowUpRightIcon className="h-6 w-6" />
                   </button>

@@ -1,156 +1,120 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import 'react-phone-number-input/style.css';
-import PhoneInputWithCountry, { Country } from 'react-phone-number-input';
+import PhoneInputWithCountry, { Country, getCountryCallingCode, formatPhoneNumberIntl } from 'react-phone-number-input';
 import flags from 'react-phone-number-input/flags';
 import { validatePhoneNumber, getValidationErrorMessage } from '@/utils/phoneValidation';
 
 interface PhoneInputWithFlagProps {
-  value: string;
-  onChange: (value: string) => void;
+  nationalNumber: string;
+  onNationalNumberChange: (nationalNumber: string) => void;
+  country: Country;
   placeholder?: string;
   className?: string;
   onFocus?: () => void;
-  onValidityChange?: (isValid: boolean, formattedNumber?: string) => void;
-  onCountrySelect?: () => void;
-  hideCountrySelector?: boolean;
-  country?: Country;
+  onValidityChange?: (isValid: boolean, e164Number?: string) => void;
   disabled?: boolean;
 }
 
 const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
-  value,
-  onChange,
-  placeholder = "+1 (234) 567-8900",
+  nationalNumber,
+  onNationalNumberChange,
+  country,
+  placeholder: rawPlaceholder = "Enter phone number",
   className = "",
   onFocus,
   onValidityChange,
-  onCountrySelect,
-  hideCountrySelector = false,
-  country,
   disabled = false
 }) => {
-  const [formattedValue, setFormattedValue] = useState(value);
+  const [localNationalNumber, setLocalNationalNumber] = useState(nationalNumber);
   const [isValid, setIsValid] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string>('');
-  const [userHasTyped, setUserHasTyped] = useState(false);
-  const [selectedCountry, setSelectedCountry] = useState<Country>('US');
+  const [userHasTyped, setUserHasTyped] = useState(!!nationalNumber);
 
-  // Update selectedCountry when country prop changes
+  const countryCallingCode = getCountryCallingCode(country);
+  const prefix = `+${countryCallingCode}`;
+
   useEffect(() => {
-    if (country) {
-      setSelectedCountry(country);
-    }
-  }, [country]);
+    setLocalNationalNumber(nationalNumber);
+  }, [nationalNumber]);
 
-  // Validate the phone number - defined with useCallback before it's used
-  const validateCurrentNumber = useCallback((phoneNumber: string, country: string) => {
-    // Skip validation if:
-    // 1. No phone number
-    // 2. User hasn't typed anything yet
-    // 3. The number just contains a + or country code (meaning user just selected a country)
-    if (!phoneNumber || !userHasTyped || phoneNumber.trim().replace(/\+/g, '').length <= 2) {
-      setIsValid(true);
-      setErrorMessage('');
-      return;
+  const validateCurrentNumber = useCallback((numberToCheck: string, countryCode: Country) => {
+    if (!numberToCheck) {
+        setIsValid(true);
+        setErrorMessage('');
+        if (onValidityChange) onValidityChange(true, undefined);
+        return;
     }
 
-    // Only validate if user has entered something substantial
-    if (phoneNumber.trim().length > 2) {
-      const validationResult = validatePhoneNumber(phoneNumber, country);
-      const valid = validationResult.isValid;
-      setIsValid(valid);
-      
-      // Set appropriate error message
-      setErrorMessage(valid ? '' : getValidationErrorMessage(validationResult));
-      
-      // Notify parent component if needed
-      if (onValidityChange) {
-        onValidityChange(valid, validationResult.e164Number);
-      }
-    } else {
-      setIsValid(true);
-      setErrorMessage('');
-    }
-  }, [userHasTyped, onValidityChange]);
+    const fullNumber = `+${getCountryCallingCode(countryCode)}${numberToCheck}`;
+    const validationResult = validatePhoneNumber(fullNumber, countryCode);
+    const valid = validationResult.isValid;
 
-  // Update formatted value when external value changes
+    setIsValid(valid);
+    setErrorMessage(valid ? '' : getValidationErrorMessage(validationResult));
+    if (onValidityChange) {
+      onValidityChange(valid, validationResult.e164Number);
+    }
+  }, [onValidityChange]);
+
   useEffect(() => {
-    setFormattedValue(value);
-    validateCurrentNumber(value, selectedCountry as string);
-  }, [value, selectedCountry, validateCurrentNumber]);
+     if (userHasTyped || nationalNumber) {
+        validateCurrentNumber(localNationalNumber, country);
+     } else {
+        setIsValid(true);
+        setErrorMessage('');
+        if (onValidityChange) onValidityChange(true, undefined);
+     }
+  }, [localNationalNumber, country, validateCurrentNumber, userHasTyped, nationalNumber, onValidityChange]);
 
-  // Handle phone input change
   const handleChange = (newValue: string | undefined) => {
-    const inputValue = newValue || '';
-    setFormattedValue(inputValue);
-    
-    // Set user has typed flag
-    if (inputValue && inputValue.length > 0) {
-      setUserHasTyped(true);
-    } else {
-      setUserHasTyped(false);
-    }
-    
-    // Validate after user has typed
-    if (userHasTyped) {
-      validateCurrentNumber(inputValue, selectedCountry as string);
-    }
+      const incomingValue = newValue || '';
+      let nationalPart = incomingValue;
 
-    // Always notify parent of changes
-    onChange(inputValue);
+      const potentialPrefix = `+${getCountryCallingCode(country)}`;
+      if (incomingValue.startsWith(potentialPrefix)) {
+          nationalPart = incomingValue.substring(potentialPrefix.length).trim();
+      }
+      nationalPart = nationalPart.replace(/[\s-()]/g, '');
+
+      setLocalNationalNumber(nationalPart);
+      onNationalNumberChange(nationalPart);
+      if (!userHasTyped && nationalPart.length > 0) {
+          setUserHasTyped(true);
+      } else if (nationalPart.length === 0) {
+          setUserHasTyped(false);
+      }
   };
 
-  // Handle country change from dropdown
-  const handleCountryChange = (country: Country | undefined) => {
-    if (country) {
-      setSelectedCountry(country);
-      // Reset validation and user-typed state when country changes
-      setIsValid(true);
-      setErrorMessage('');
-      // Only reset userHasTyped if the phone number is empty or just has the country code
-      if (!formattedValue || formattedValue.replace(/\+/g, '').length <= 2) {
-        setUserHasTyped(false);
-      }
-      
-      // Notify parent component that a country has been selected
-      if (onCountrySelect) {
-        onCountrySelect();
-      }
-    }
-  };
+  const dynamicPlaceholder = formatPhoneNumberIntl(`+${countryCallingCode}##########`)
+      ?.replace(prefix, '')
+      .trim() || rawPlaceholder;
 
   return (
-    <div className="phone-input-wrapper">
-      <div className="bg-gray-100 rounded-lg p-2">
+    <div className={`phone-input-wrapper ${className}`}>
+      <div className={`flex items-center bg-gray-100 rounded-lg p-2 border ${isValid ? 'border-transparent' : 'border-red-500'} ${disabled ? 'opacity-50' : ''}`}>
+        <span className="px-2 text-gray-600">{prefix}</span>
+
         <PhoneInputWithCountry
-          international
-          countryCallingCodeEditable={false}
-          defaultCountry="US"
-          country={selectedCountry}
-          value={formattedValue}
+          country={country}
+          value={localNationalNumber}
           onChange={handleChange}
-          onCountryChange={handleCountryChange}
-          placeholder={placeholder}
+          placeholder={dynamicPlaceholder}
           onFocus={onFocus}
+          disabled={disabled}
+          international={false}
+          displayInitialValueAsLocalNumber={true}
+          countryCallingCodeEditable={false}
           addInternationalOption={false}
           limitMaxLength={true}
           flags={flags}
-          className={`${isValid || !userHasTyped ? '' : 'border-red-500 border-2'} ${className}`}
-          countrySelectProps={{
-            arrowComponent: () => <span className="PhoneInputCountrySelectArrow" />
-          }}
-          inputClassName="pr-8"
-          inputProps={{
-            id: "phone-input",
-            disabled: disabled,
-            className: disabled ? "cursor-not-allowed" : ""
-          }}
-          countrySelectComponent={hideCountrySelector ? () => null : undefined}
+          inputClassName={`flex-1 min-w-0 bg-transparent border-none focus:ring-0 focus:outline-none p-0 ${disabled ? "cursor-not-allowed text-gray-500" : ""}`}
+          countrySelectComponent={() => null}
+          className="flex-1"
         />
       </div>
-      {!isValid && userHasTyped && formattedValue && (
+      {!isValid && (localNationalNumber || userHasTyped) && (
         <p className="text-red-500 text-xs mt-1">
-          {errorMessage || 'Please enter a valid phone number'}
+          {errorMessage || 'Invalid phone number'}
         </p>
       )}
     </div>
