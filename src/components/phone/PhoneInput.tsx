@@ -13,6 +13,7 @@ interface PhoneInputWithFlagProps {
   onValidityChange?: (isValid: boolean, formattedNumber?: string) => void;
   onCountrySelect?: () => void;
   hideCountrySelector?: boolean;
+  country?: Country;
 }
 
 const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
@@ -23,13 +24,21 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
   onFocus,
   onValidityChange,
   onCountrySelect,
-  hideCountrySelector = false
+  hideCountrySelector = false,
+  country
 }) => {
   const [formattedValue, setFormattedValue] = useState(value);
   const [isValid, setIsValid] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [userHasTyped, setUserHasTyped] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<Country>('US');
+
+  // Update selectedCountry when country prop changes
+  useEffect(() => {
+    if (country) {
+      setSelectedCountry(country);
+    }
+  }, [country]);
 
   // Validate the phone number - defined with useCallback before it's used
   const validateCurrentNumber = useCallback((phoneNumber: string, country: string) => {

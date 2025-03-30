@@ -37,6 +37,7 @@ export default function VoiceCall({
   const [isPhoneNumberValid, setIsPhoneNumberValid] = useState(false);
   const [validatedE164Number, setValidatedE164Number] = useState<string>('');
   const [countrySelected, setCountrySelected] = useState<boolean>(false);
+  const [selectedCountry, setSelectedCountry] = useState<Country>('US');
 
   const {
     isReady,
@@ -157,6 +158,47 @@ export default function VoiceCall({
 
   const handleCountrySelection = () => {
     setCountrySelected(true);
+  };
+
+  // New function to handle country changes
+  const handleCountryChange = (country: Country | undefined) => {
+    if (!country) return;
+    
+    setSelectedCountry(country);
+    setCountrySelected(true);
+    
+    // Get the calling code for this country
+    const callingCodes: Record<string, string> = {
+      'US': '1',
+      'CA': '1',
+      'GB': '44',
+      'AU': '61',
+      'DE': '49',
+      'FR': '33',
+      'ES': '34',
+      'IT': '39',
+      'CN': '86',
+      'JP': '81',
+      'IN': '91',
+      'BR': '55',
+      'RU': '7',
+      'MX': '52',
+      // Add more as needed
+    };
+    
+    // Get the calling code or use default fallback
+    const callingCode = callingCodes[country] || '1';
+    
+    // If phone number is empty or just has a different country code, update it
+    // This preserves any number the user has already entered
+    if (!phoneNumber || phoneNumber.trim() === '' || phoneNumber.match(/^\+\d{1,3}$/)) {
+      setPhoneNumber(`+${callingCode}`);
+    } else if (phoneNumber.startsWith('+')) {
+      // If it already starts with +, replace the country code part
+      const currentDigits = phoneNumber.substring(phoneNumber.indexOf(' ') !== -1 ? 
+        phoneNumber.indexOf(' ') : 1);
+      setPhoneNumber(`+${callingCode}${currentDigits}`);
+    }
   };
 
   const handleCallSubmit = async (e: FormEvent) => {
@@ -527,11 +569,7 @@ export default function VoiceCall({
                         defaultCountry="US"
                         value=""
                         onChange={() => {}}
-                        onCountryChange={(country: Country | undefined) => {
-                          if (country) {
-                            handleCountrySelection();
-                          }
-                        }}
+                        onCountryChange={handleCountryChange}
                         className="country-selector-only"
                         inputClass="hidden"
                       />
@@ -548,6 +586,7 @@ export default function VoiceCall({
                     onValidityChange={handlePhoneValidityChange}
                     onCountrySelect={handleCountrySelection}
                     hideCountrySelector={true}
+                    country={selectedCountry}
                   />
                   {phoneNumber && (
                     <button
