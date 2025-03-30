@@ -11,7 +11,6 @@ import {
 } from '@/lib/firebase';
 import { 
   signInWithPopup,
-  GoogleAuthProvider,
   AuthError
 } from 'firebase/auth';
 import { useAuth } from '@/context/AuthContext';
@@ -196,11 +195,11 @@ export default function Home() {
                 </svg>
                 <h3 className="text-lg font-semibold text-green-800 mb-1">Check your email</h3>
                 <p className="text-green-700">
-                  We've sent a sign-in link to <strong>{email}</strong>. 
+                  We&apos;ve sent a sign-in link to <strong>{email}</strong>. 
                   Click the link in the email to sign in.
                 </p>
                 <p className="text-sm text-green-600 mt-2">
-                  If you're a new user, your account will be created automatically.
+                  If you&apos;re a new user, your account will be created automatically.
                 </p>
                 <button 
                   onClick={() => setEmailSent(false)} 
@@ -248,9 +247,7 @@ export default function Home() {
                 </button>
 
                 <div className="text-sm text-center mt-4">
-                  <p className="text-gray-600">
-                    We'll email you a secure magic link for password-free access.
-                  </p>
+                  We&apos;ll email you a secure magic link for password-free access.
                 </div>
               </form>
             )}

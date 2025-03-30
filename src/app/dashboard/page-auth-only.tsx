@@ -66,7 +66,7 @@ export default function DashboardAuthOnly() {
             <h2 className="text-2xl font-bold text-center mb-6">Welcome to ZippCall</h2>
             
             <div className="text-center mb-8">
-              <p className="text-gray-700">You're now signed in with:</p>
+              <p className="text-gray-700">You&apos;re now signed in with:</p>
               <p className="font-medium mt-2">{user.email}</p>
               <p className="text-sm text-gray-500 mt-1">User ID: {user.uid.substring(0, 8)}...</p>
             </div>
