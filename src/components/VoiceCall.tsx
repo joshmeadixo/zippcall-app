@@ -1,7 +1,7 @@
 import React, { useState, FormEvent, useEffect } from 'react';
 import { useTwilioDevice } from '@/hooks/useTwilioDevice';
 import { PhoneIcon, PhoneXMarkIcon, MicrophoneIcon } from '@heroicons/react/24/solid';
-import { CogIcon, ArrowUpRightIcon, PhoneArrowUpRightIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { ArrowUpRightIcon, PhoneArrowUpRightIcon, ClockIcon } from '@heroicons/react/24/outline';
 import DialPad from './DialPad';
 import CallTimer from './CallTimer';
 import CallControls from './CallControls';
