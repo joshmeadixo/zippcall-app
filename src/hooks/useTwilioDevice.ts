@@ -117,7 +117,7 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
         localStream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [userId, device]);
+  }, [userId]);
 
   // Make an outgoing call
   const makeCall = useCallback(async (to: string) => {
