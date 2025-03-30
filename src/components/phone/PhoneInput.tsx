@@ -29,13 +29,17 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
 
   // Validate the phone number - defined with useCallback before it's used
   const validateCurrentNumber = useCallback((phoneNumber: string, country: string) => {
-    if (!phoneNumber || !userHasTyped) {
+    // Skip validation if:
+    // 1. No phone number
+    // 2. User hasn't typed anything yet
+    // 3. The number just contains a + or country code (meaning user just selected a country)
+    if (!phoneNumber || !userHasTyped || phoneNumber.trim().replace(/\+/g, '').length <= 2) {
       setIsValid(true);
       setErrorMessage('');
       return;
     }
 
-    // Only validate if user has entered something
+    // Only validate if user has entered something substantial
     if (phoneNumber.trim().length > 2) {
       const validationResult = validatePhoneNumber(phoneNumber, country);
       const valid = validationResult.isValid;
@@ -85,10 +89,13 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
   const handleCountryChange = (country: Country | undefined) => {
     if (country) {
       setSelectedCountry(country);
-      // Reset validation when country changes
+      // Reset validation and user-typed state when country changes
       setIsValid(true);
       setErrorMessage('');
-      setUserHasTyped(false);
+      // Only reset userHasTyped if the phone number is empty or just has the country code
+      if (!formattedValue || formattedValue.replace(/\+/g, '').length <= 2) {
+        setUserHasTyped(false);
+      }
     }
   };
 

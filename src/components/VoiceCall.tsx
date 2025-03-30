@@ -198,10 +198,20 @@ export default function VoiceCall({
       // Send DTMF tone during call
       call.sendDigits(digit);
     } else {
-      // When using the dialer, simply append the digit
-      // This ensures we don't interfere with the country code handling 
-      // which is managed by the PhoneInputWithFlag component
-      setPhoneNumber(prev => prev + digit);
+      // When using the dialer, preserve the country code
+      // This will keep the country prefix if the phone input is empty or has just the country code
+      if (!phoneNumber || phoneNumber.trim() === '') {
+        // If the field is empty, we need to initialize with the selected country's code
+        const countrySelect = document.querySelector('.PhoneInputCountrySelect') as HTMLSelectElement;
+        const selectedCountryCode = countrySelect?.value || 'US';
+        
+        // Create a properly formatted number with the country code first
+        // We'll let the phone input component handle the full formatting
+        setPhoneNumber(`+${selectedCountryCode}${digit}`);
+      } else {
+        // Otherwise just append the digit
+        setPhoneNumber(prev => prev + digit);
+      }
     }
   };
 
