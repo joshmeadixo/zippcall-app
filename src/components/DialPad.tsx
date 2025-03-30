@@ -22,7 +22,7 @@ const DialPad = ({ onDigitPressed, onBackspace, disabled = false }: DialPadProps
   ];
 
   // Play DTMF tone when a key is pressed
-  const playTone = useCallback((digit: string) => {
+  const playTone = useCallback(async (digit: string) => {
     if (disabled) return;
     
     // Don't play tone for "+" as it's not a DTMF tone
@@ -53,6 +53,11 @@ const DialPad = ({ onDigitPressed, onBackspace, disabled = false }: DialPadProps
       const windowWithAudioContext = window as unknown as AudioContextWindow;
       const AudioContextClass = windowWithAudioContext.AudioContext || windowWithAudioContext.webkitAudioContext;
       const audioCtx = new AudioContextClass();
+      
+      // Ensure AudioContext is running (needed for Chrome and Safari)
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
       
       // Create oscillators
       const osc1 = audioCtx.createOscillator();
