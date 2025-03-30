@@ -1,6 +1,6 @@
 import React, { useState, FormEvent, useEffect } from 'react';
 import { useTwilioDevice } from '@/hooks/useTwilioDevice';
-import { PhoneIcon, PhoneXMarkIcon, MicrophoneIcon } from '@heroicons/react/24/solid';
+import { PhoneIcon, PhoneXMarkIcon, MicrophoneIcon, XCircleIcon } from '@heroicons/react/24/solid';
 import { ArrowUpRightIcon, PhoneArrowUpRightIcon, ClockIcon } from '@heroicons/react/24/outline';
 import DialPad from './DialPad';
 import CallTimer from './CallTimer';
@@ -503,13 +503,22 @@ export default function VoiceCall({
             ) : (
               // Idle phone view with dial pad
               <div>
-                <div className="mb-6">
+                <div className="mb-6 relative">
                   <PhoneInputWithFlag
                     value={phoneNumber}
                     onChange={setPhoneNumber}
                     placeholder="+1 (234) 567-8900"
                     onFocus={() => {}}
                   />
+                  {phoneNumber && (
+                    <button
+                      onClick={handleClearNumber}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none p-1 rounded-full hover:bg-gray-200 transition-colors"
+                      aria-label="Clear number"
+                    >
+                      <XCircleIcon className="h-5 w-5" />
+                    </button>
+                  )}
                 </div>
                 
                 <DialPad 
@@ -517,16 +526,7 @@ export default function VoiceCall({
                   onBackspace={handleBackspace}
                 />
                 
-                <div className="mt-4 flex justify-center space-x-4">
-                  <button
-                    onClick={handleClearNumber}
-                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md text-sm font-medium"
-                  >
-                    Clear Number
-                  </button>
-                </div>
-                
-                <div className="mt-4 flex justify-center">
+                <div className="mt-6 flex justify-center">
                   <button
                     onClick={handleCallSubmit}
                     disabled={!phoneNumber.trim() || !isReady}

@@ -110,6 +110,7 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
           countrySelectProps={{
             arrowComponent: () => <span className="PhoneInputCountrySelectArrow" />
           }}
+          inputClassName="pr-8"
         />
       </div>
       {!isValid && userHasTyped && formattedValue && (
