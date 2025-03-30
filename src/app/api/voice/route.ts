@@ -17,7 +17,9 @@ export async function POST(request: NextRequest) {
       } else {
         // Otherwise, we're making a call to a regular phone number
         const dial = twiml.dial({ callerId: process.env.TWILIO_CALLER_ID });
-        dial.number(to);
+        // Ensure the phone number is properly formatted without leading spaces
+        const formattedNumber = to.trim();
+        dial.number(formattedNumber);
       }
     } else {
       // If there's no To parameter, we're receiving an incoming call

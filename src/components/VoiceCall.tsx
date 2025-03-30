@@ -33,11 +33,12 @@ export default function VoiceCall({ userId }: VoiceCallProps) {
     e.preventDefault();
     if (!phoneNumber.trim()) return;
     
-    // Format phone number to add + if needed
+    // Format phone number to add + if needed and remove any spaces or formatting
     let formattedNumber = phoneNumber.trim();
-    if (!formattedNumber.startsWith('+')) {
-      formattedNumber = `+${formattedNumber}`;
-    }
+    // Remove any non-digit characters except the leading +
+    formattedNumber = formattedNumber.startsWith('+') 
+      ? '+' + formattedNumber.substring(1).replace(/\D/g, '')
+      : '+' + formattedNumber.replace(/\D/g, '');
     
     await makeCall(formattedNumber);
   };

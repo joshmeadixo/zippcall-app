@@ -49,7 +49,7 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
         
         // Create a new Device with appropriate options
         const newDevice = new Device(token, {
-          logLevel: 'info',
+          logLevel: 'debug',
         });
 
         // Set up event listeners
