@@ -41,62 +41,6 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
   const [error, setError] = useState<string | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
-  // Audio unlock function - must be called on a user interaction event
-  const unlockAudio = useCallback(async () => {
-    console.log('[useTwilioDevice] Attempting to unlock audio...');
-    
-    try {
-      // Create AudioContext if it doesn't exist
-      if (!audioContextRef.current) {
-        const windowWithAudioContext = window as unknown as AudioContextWindow;
-        const AudioContextClass = windowWithAudioContext.AudioContext || windowWithAudioContext.webkitAudioContext;
-        audioContextRef.current = new AudioContextClass();
-        console.log('[useTwilioDevice] Created new AudioContext');
-      }
-      
-      // Resume AudioContext if it's suspended
-      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-        await audioContextRef.current.resume();
-        console.log('[useTwilioDevice] Resumed AudioContext, state:', audioContextRef.current.state);
-      }
-      
-      // Create and play a silent sound to unlock audio on iOS
-      const oscillator = audioContextRef.current.createOscillator();
-      const gainNode = audioContextRef.current.createGain();
-      gainNode.gain.value = 0.01; // Nearly silent
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContextRef.current.destination);
-      oscillator.start(0);
-      oscillator.stop(0.1); // Very short duration
-      
-      return true;
-    } catch (err) {
-      console.error('[useTwilioDevice] Error unlocking audio:', err);
-      return false;
-    }
-  }, []);
-  
-  // Force audio unlock on page load
-  useEffect(() => {
-    // Add this inline event listener to unlock audio on first interaction
-    const handleFirstInteraction = async () => {
-      await unlockAudio();
-      document.removeEventListener('click', handleFirstInteraction);
-      document.removeEventListener('touchstart', handleFirstInteraction);
-      document.removeEventListener('keydown', handleFirstInteraction);
-    };
-    
-    document.addEventListener('click', handleFirstInteraction);
-    document.addEventListener('touchstart', handleFirstInteraction);
-    document.addEventListener('keydown', handleFirstInteraction);
-    
-    return () => {
-      document.removeEventListener('click', handleFirstInteraction);
-      document.removeEventListener('touchstart', handleFirstInteraction);
-      document.removeEventListener('keydown', handleFirstInteraction);
-    };
-  }, [unlockAudio]);
-
   // Initialize the device
   useEffect(() => {
     console.log('[useTwilioDevice] Initialize Effect Triggered. userId:', userId);
@@ -170,18 +114,15 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
         if (!isMounted) return;
 
         console.log('[useTwilioDevice] Creating Twilio Device with token...');
-        // Create device with options specifically focused on audio
+        // Create device with more familiar options - similar to original working version
         localDevice = new Device(token, {
           codecPreferences: [Call.Codec.Opus, Call.Codec.PCMU],
           allowIncomingWhileBusy: true,
-          // AudioContext handling - explicitly enable sounds
+          // Explicitly enable all audio features
           disableAudioContextSounds: false,
-          // Increase log level for debugging
+          // Set log level for debugging
           logLevel: 'debug'
         });
-        
-        // Try unlocking audio immediately after device creation
-        await unlockAudio();
         
         // First add event listeners
         localDevice.on('error', (err) => {
@@ -252,7 +193,7 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
         }
       }
     };
-  }, [userId, isReady, unlockAudio]);
+  }, [userId, isReady]);
 
   // Register listeners for device state changes
   useEffect(() => {
@@ -411,7 +352,7 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
       }
     };
   // Removed userId dependency - device listeners depend on the device instance itself
-  }, [device, isReady, unlockAudio]); // Re-run ONLY if device instance or isReady state changes
+  }, [device, isReady]); // Re-run ONLY if device instance or isReady state changes
 
   // Make an outgoing call
   const makeCall = useCallback(async (to: string) => {
@@ -421,12 +362,14 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
       return;
     }
     
-    // Force unlock audio before call
+    // Try to ensure audio context is active for the call
     try {
-      const audioUnlocked = await unlockAudio();
-      console.log('[useTwilioDevice] Audio unlocked before call:', audioUnlocked);
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+        console.log('[useTwilioDevice] Resumed AudioContext for call');
+      }
     } catch (err) {
-      console.warn('[useTwilioDevice] Error unlocking audio:', err);
+      console.warn('[useTwilioDevice] Could not resume AudioContext, audio may not work:', err);
       // Continue anyway
     }
     
@@ -459,33 +402,32 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
       setIsConnecting(false);
       setCall(null);
     }
-  }, [device, isReady, unlockAudio]);
+  }, [device, isReady]);
 
   // Hang up the current call
   const hangupCall = useCallback(() => {
     console.log('[useTwilioDevice] hangupCall: Attempting to hang up call...');
     
-    try {
-      // Always try device.disconnectAll() first - this is more reliable
-      if (device) {
+    // If we have a call object, try to disconnect it
+    if (call) {
+      try {
+        call.disconnect();
+        console.log('[useTwilioDevice] hangupCall: Call disconnect initiated');
+      } catch (err) {
+        console.error('[useTwilioDevice] hangupCall: Error disconnecting call:', err);
+      }
+    } else if (device) {
+      // If we don't have a call but have a device, try disconnecting all calls
+      try {
         device.disconnectAll();
-        console.log('[useTwilioDevice] hangupCall: Device disconnectAll called');
+        console.log('[useTwilioDevice] hangupCall: Device disconnectAll initiated');
+      } catch (err) {
+        console.error('[useTwilioDevice] hangupCall: Error disconnecting all calls:', err);
       }
-      
-      // Also try call.disconnect as a backup if we have a call object
-      if (call) {
-        try {
-          call.disconnect();
-          console.log('[useTwilioDevice] hangupCall: Call disconnect also called');
-        } catch (err) {
-          console.error('[useTwilioDevice] hangupCall: Error disconnecting call:', err);
-        }
-      }
-    } catch (err) {
-      console.error('[useTwilioDevice] hangupCall: Error disconnecting all calls:', err);
     }
     
     // Always reset states regardless of whether we had a call object
+    // This ensures the UI is updated even if call state tracking was lost
     console.log('[useTwilioDevice] hangupCall: Resetting all call states');
     setIsConnecting(false);
     setIsConnected(false);
@@ -503,33 +445,26 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
       return;
     }
     
-    // Force unlock audio before accepting call
+    // Try to ensure audio context is active for the call
     try {
-      const audioUnlocked = await unlockAudio();
-      console.log('[useTwilioDevice] Audio unlocked before accepting call:', audioUnlocked);
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+        console.log('[useTwilioDevice] Resumed AudioContext for incoming call');
+      }
     } catch (err) {
-      console.warn('[useTwilioDevice] Could not unlock audio for incoming call:', err);
+      console.warn('[useTwilioDevice] Could not resume AudioContext for incoming call:', err);
       // Continue anyway
     }
     
     console.log('[useTwilioDevice] answerCall: Accepting incoming call...');
     try {
       call.accept();
-      console.log('[useTwilioDevice] answerCall: Call accepted');
-      
-      // Manually set states in case events don't fire
-      setIsConnected(true);
-      setIsAccepted(true);
+      // States will be set by event listeners on the call
     } catch (err) {
       console.error('[useTwilioDevice] Error accepting call:', err);
       setError('Failed to accept call');
-      
-      // Reset states on error
-      setCall(null);
-      setIsConnected(false);
-      setIsAccepted(false);
     }
-  }, [call, unlockAudio]);
+  }, [call]);
 
   // Reject an incoming call
   const rejectCall = useCallback(() => {
