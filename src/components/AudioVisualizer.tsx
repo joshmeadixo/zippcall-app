@@ -4,6 +4,12 @@ interface AudioVisualizerProps {
   isActive: boolean;
 }
 
+// Define window with AudioContext
+interface AudioContextWindow extends Window {
+  AudioContext: typeof AudioContext;
+  webkitAudioContext: typeof AudioContext;
+}
+
 const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ isActive }) => {
   const [audioLevel, setAudioLevel] = useState<number>(0);
   const animationFrameRef = useRef<number | null>(null);
@@ -32,7 +38,9 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ isActive }) => {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         
         // Create audio context
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const windowWithAudioContext = window as unknown as AudioContextWindow;
+        const AudioContextClass = windowWithAudioContext.AudioContext || windowWithAudioContext.webkitAudioContext;
+        const audioContext = new AudioContextClass();
         audioContextRef.current = audioContext;
         
         // Create analyser

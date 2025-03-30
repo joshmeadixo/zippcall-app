@@ -7,6 +7,12 @@ interface DialPadProps {
   disabled?: boolean;
 }
 
+// Define window with AudioContext
+interface AudioContextWindow extends Window {
+  AudioContext: typeof AudioContext;
+  webkitAudioContext: typeof AudioContext;
+}
+
 const DialPad = ({ onDigitPressed, onBackspace, disabled = false }: DialPadProps) => {
   const dialPadKeys = [
     ['1', '2', '3'],
@@ -41,7 +47,9 @@ const DialPad = ({ onDigitPressed, onBackspace, disabled = false }: DialPadProps
     
     try {
       // Create audio context
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const windowWithAudioContext = window as unknown as AudioContextWindow;
+      const AudioContextClass = windowWithAudioContext.AudioContext || windowWithAudioContext.webkitAudioContext;
+      const audioCtx = new AudioContextClass();
       
       // Create oscillators
       const osc1 = audioCtx.createOscillator();

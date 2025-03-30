@@ -22,7 +22,6 @@ export default function VoiceCall({ userId }: VoiceCallProps) {
   const [callHistory, setCallHistory] = useState<CallHistoryEntry[]>([]);
 
   const {
-    device,
     isReady,
     isConnecting,
     isConnected,
