@@ -11,6 +11,7 @@ interface UseTwilioDeviceReturn {
   isReady: boolean;
   isConnecting: boolean;
   isConnected: boolean;
+  isAccepted: boolean;
   error: string | null;
   makeCall: (to: string) => Promise<void>;
   hangupCall: () => void;
@@ -24,6 +25,7 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
   const [isReady, setIsReady] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [isAccepted, setIsAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Initialize the device
@@ -79,18 +81,25 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
           
           // Set up call event listeners
           incomingCall.on('accept', () => {
-            if (isMounted) setIsConnected(true);
+            if (isMounted) {
+              setIsConnected(true);
+              setIsAccepted(true);
+            }
           });
           
           incomingCall.on('disconnect', () => {
             if (isMounted) {
               setCall(null);
               setIsConnected(false);
+              setIsAccepted(false);
             }
           });
 
           incomingCall.on('cancel', () => {
-            if (isMounted) setCall(null);
+            if (isMounted) {
+              setCall(null);
+              setIsAccepted(false);
+            }
           });
         });
 
@@ -142,18 +151,21 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
       outgoingCall.on('accept', () => {
         setIsConnected(true);
         setIsConnecting(false);
+        setIsAccepted(true);
       });
 
       outgoingCall.on('disconnect', () => {
         setCall(null);
         setIsConnected(false);
         setIsConnecting(false);
+        setIsAccepted(false);
       });
 
       outgoingCall.on('error', (callError) => {
         console.error('Call error:', callError);
         setError(callError.message);
         setIsConnecting(false);
+        setIsAccepted(false);
       });
 
       setCall(outgoingCall);
@@ -171,6 +183,7 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
       setCall(null);
       setIsConnected(false);
       setIsConnecting(false);
+      setIsAccepted(false);
     }
   }, [call]);
 
@@ -186,6 +199,7 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
     if (call) {
       call.reject();
       setCall(null);
+      setIsAccepted(false);
     }
   }, [call]);
 
@@ -195,6 +209,7 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
     isReady,
     isConnecting,
     isConnected,
+    isAccepted,
     error,
     makeCall,
     hangupCall,

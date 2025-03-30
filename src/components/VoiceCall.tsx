@@ -25,6 +25,7 @@ export default function VoiceCall({ userId }: VoiceCallProps) {
     isReady,
     isConnecting,
     isConnected,
+    isAccepted,
     error,
     makeCall,
     hangupCall,
@@ -87,9 +88,9 @@ export default function VoiceCall({ userId }: VoiceCallProps) {
     }
   }, [call, isConnected, isConnecting, isIncomingCall]);
 
-  // Update call start time when connected
+  // Update call start time when call is accepted, not just connected
   useEffect(() => {
-    if (isConnected && !callStartTime) {
+    if (isAccepted && !callStartTime) {
       setCallStartTime(Date.now());
     } else if (!isConnected && callStartTime) {
       // Call ended, save to history
@@ -105,7 +106,7 @@ export default function VoiceCall({ userId }: VoiceCallProps) {
       setCallHistory(prev => [newCall, ...prev].slice(0, 50)); // Keep last 50 calls
       setCallStartTime(null);
     }
-  }, [isConnected, callStartTime, phoneNumber, isIncomingCall]);
+  }, [isAccepted, isConnected, callStartTime, phoneNumber, isIncomingCall]);
 
   // Handle call controls
   const handleToggleMute = (isMuted: boolean) => {
@@ -401,7 +402,7 @@ export default function VoiceCall({ userId }: VoiceCallProps) {
                 <AudioVisualizer isActive={isConnected} />
                 
                 <div className="my-4">
-                  <CallTimer startTime={callStartTime} isActive={isConnected} />
+                  <CallTimer startTime={callStartTime} isActive={isAccepted} />
                 </div>
                 
                 <CallControls 
@@ -442,7 +443,6 @@ export default function VoiceCall({ userId }: VoiceCallProps) {
                     onClick={() => {
                       answerCall();
                       setIsIncomingCall(false);
-                      setCallStartTime(Date.now());
                     }}
                     className="bg-green-500 hover:bg-green-600 text-white rounded-full p-4 flex items-center justify-center"
                     aria-label="Answer call"
@@ -536,7 +536,7 @@ export default function VoiceCall({ userId }: VoiceCallProps) {
       </div>
       
       <div className="px-4 py-2 text-xs text-gray-500 border-t">
-        <p>Status: {isReady ? 'Ready' : 'Initializing'} | Mic: {micPermission}</p>
+        <p>Status: {isReady ? 'Ready' : 'Initializing'} | Mic: {micPermission} {isConnected && (isAccepted ? '| Call: Connected' : '| Call: Connecting...')}</p>
       </div>
     </div>
   );
