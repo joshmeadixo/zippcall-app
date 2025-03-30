@@ -444,14 +444,10 @@ export default function VoiceCall({
                   <div className="mt-1 relative z-10 phone-selector-container" style={{ overflow: 'visible' }}>
                     <div className="max-w-xs mx-auto">
                       <PhoneInputCountry
-                        international
-                        countryCallingCodeEditable={false}
-                        defaultCountry="US"
                         value=""
                         onChange={() => {}}
                         onCountryChange={handleCountryChange}
                         className="country-selector-only"
-                        inputClass="hidden"
                       />
                     </div>
                   </div>

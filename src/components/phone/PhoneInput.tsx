@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import 'react-phone-number-input/style.css';
-import PhoneInputWithCountry, { Country, getCountryCallingCode, formatPhoneNumberIntl } from 'react-phone-number-input';
-import flags from 'react-phone-number-input/flags';
+import { Country, getCountryCallingCode, formatPhoneNumberIntl } from 'react-phone-number-input';
 import { validatePhoneNumber, getValidationErrorMessage } from '@/utils/phoneValidation';
 
 interface PhoneInputWithFlagProps {
@@ -10,7 +9,7 @@ interface PhoneInputWithFlagProps {
   country: Country;
   placeholder?: string;
   className?: string;
-  onFocus?: () => void;
+  onFocus?: (event: React.FocusEvent<HTMLInputElement>) => void;
   onValidityChange?: (isValid: boolean, e164Number?: string) => void;
   disabled?: boolean;
 }
@@ -38,13 +37,17 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
   }, [nationalNumber]);
 
   const validateCurrentNumber = useCallback((numberToCheck: string, countryCode: Country) => {
-    if (!numberToCheck) {
+    const MIN_NATIONAL_DIGITS_FOR_VALIDATION = 3; // Minimum digits before showing errors
+
+    // If national number is empty or too short, consider valid for now (no error shown)
+    if (!numberToCheck || numberToCheck.length < MIN_NATIONAL_DIGITS_FOR_VALIDATION) { 
         setIsValid(true);
         setErrorMessage('');
-        if (onValidityChange) onValidityChange(true, undefined);
+        if (onValidityChange) onValidityChange(true, undefined); // Report as potentially valid (incomplete)
         return;
     }
 
+    // Construct full number and perform validation (only if enough digits)
     const fullNumber = `+${getCountryCallingCode(countryCode)}${numberToCheck}`;
     const validationResult = validatePhoneNumber(fullNumber, countryCode);
     const valid = validationResult.isValid;
@@ -66,12 +69,15 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
      }
   }, [localNationalNumber, country, validateCurrentNumber, userHasTyped, nationalNumber, onValidityChange]);
 
-  const handleChange = (newValue: string | undefined) => {
-      const incomingValue = newValue || '';
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+      console.log('[PhoneInputWithFlag] Standard input onChange event value:', event.target.value);
+      const incomingValue = event.target.value || '';
       
       const nationalDigits = incomingValue.replace(/\D/g, ''); 
+      console.log('[PhoneInputWithFlag] Extracted nationalDigits:', nationalDigits);
 
       if (nationalDigits !== localNationalNumber) { 
+          console.log('[PhoneInputWithFlag] Updating state with:', nationalDigits);
           setLocalNationalNumber(nationalDigits);
           onNationalNumberChange(nationalDigits);
 
@@ -80,6 +86,8 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
           } else if (nationalDigits.length === 0) {
               setUserHasTyped(false);
           }
+      } else {
+          console.log('[PhoneInputWithFlag] Not updating state, digits same:', nationalDigits);
       }
   };
 
@@ -90,24 +98,18 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
   return (
     <div className={`phone-input-wrapper ${className}`}>
       <div className={`flex items-center bg-gray-100 rounded-lg p-2 border ${isValid ? 'border-transparent' : 'border-red-500'} ${disabled ? 'opacity-50' : ''}`}>
-        <span className="px-2 text-gray-600">{prefix}</span>
+        <span className="px-2 text-gray-600 flex-shrink-0">{prefix}</span>
 
-        <PhoneInputWithCountry
-          country={country}
+        <input
+          type="tel"
+          id="phone-input"
           value={localNationalNumber}
           onChange={handleChange}
-          placeholder={dynamicPlaceholder}
           onFocus={onFocus}
+          placeholder={dynamicPlaceholder}
           disabled={disabled}
-          international={true}
-          displayInitialValueAsLocalNumber={true}
-          countryCallingCodeEditable={false}
-          addInternationalOption={false}
-          limitMaxLength={true}
-          flags={flags}
-          inputClassName={`flex-1 min-w-0 bg-transparent border-none focus:ring-0 focus:outline-none p-0 ${disabled ? "cursor-not-allowed text-gray-500" : ""}`}
-          countrySelectComponent={() => null}
-          className="flex-1"
+          className={`flex-1 min-w-0 bg-transparent border-none focus:ring-0 focus:outline-none py-1 ${disabled ? "cursor-not-allowed text-gray-500" : ""}`}
+          autoComplete="tel-national"
         />
       </div>
       {!isValid && (localNationalNumber || userHasTyped) && (

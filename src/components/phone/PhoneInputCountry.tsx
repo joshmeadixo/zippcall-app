@@ -12,7 +12,6 @@ interface PhoneInputCountryOnlyProps {
   international?: boolean;
   countryCallingCodeEditable?: boolean;
   defaultCountry?: Country;
-  inputClass?: string;
 }
 
 interface CountryOption {
@@ -202,7 +201,6 @@ const PhoneInputCountry: React.FC<PhoneInputCountryOnlyProps> = ({
   international = true,
   countryCallingCodeEditable = false,
   defaultCountry = "US",
-  inputClass = "" // Class specifically for the input element - passed to PhoneInput
 }) => {
   return (
     <div 
@@ -217,8 +215,6 @@ const PhoneInputCountry: React.FC<PhoneInputCountryOnlyProps> = ({
           onChange={onChange}
           onCountryChange={onCountryChange}
           flags={flags}
-          // Use the library's inputClassName prop for the (hidden) input if needed
-          inputClassName={inputClass} 
           countrySelectComponent={CustomCountrySelect}
         />
       </div>
