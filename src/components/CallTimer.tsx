@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface CallTimerProps {
   startTime: number | null;
@@ -7,28 +7,35 @@ interface CallTimerProps {
 
 const CallTimer: React.FC<CallTimerProps> = ({ startTime, isActive }) => {
   const [elapsed, setElapsed] = useState<number>(0);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
+    // Clean up any existing interval first
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
     
     if (isActive && startTime) {
-      // Reset elapsed time when call starts
-      setElapsed(0);
+      // Set initial elapsed time
+      const initialElapsed = Math.floor((Date.now() - startTime) / 1000);
+      setElapsed(initialElapsed);
       
-      // Start the timer
-      intervalId = setInterval(() => {
+      // Start the timer with a stable interval
+      intervalRef.current = setInterval(() => {
         const newElapsed = Math.floor((Date.now() - startTime) / 1000);
         setElapsed(newElapsed);
       }, 1000);
     } else {
-      // Reset when call ends
+      // Reset when call ends or becomes inactive
       setElapsed(0);
     }
     
-    // Clean up interval on unmount
+    // Clean up interval on unmount or when dependencies change
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
   }, [startTime, isActive]);

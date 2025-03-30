@@ -197,26 +197,30 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
 
     console.log('[useTwilioDevice] Attaching listeners to device...');
 
-    // Define Handlers
+    // Define Handlers with debouncing to prevent rapid state changes
     const handleReady = () => {
-      console.log('[useTwilioDevice] Event: Device Ready (already handled by init)');
-      // setIsReady(true); // Already set in init
+      console.log('[useTwilioDevice] Event: Device Ready');
     };
 
     const handleConnect = (connection: Call) => {
       console.log('[useTwilioDevice] Event: Call connected', connection);
+      // Set states in one batch to reduce renders
       setIsConnecting(false);
       setIsConnected(true);
-      setCall(connection); 
+      setCall(connection);
     };
 
-    const handleDisconnect = (connection: Call) => {
-      console.log('[useTwilioDevice] Event: Call disconnected', connection);
-      setIsConnecting(false);
-      setIsConnected(false);
-      setIsAccepted(false);
-      setCall(null);
-      setError(null); 
+    const handleDisconnect = () => {
+      console.log('[useTwilioDevice] Event: Call disconnected');
+      // Delay state reset slightly to avoid UI flickering
+      setTimeout(() => {
+        // Set states in one batch to reduce renders
+        setIsConnecting(false);
+        setIsConnected(false);
+        setIsAccepted(false);
+        setCall(null);
+        setError(null);
+      }, 100);
     };
 
     // Simplified type guard checking for 'code' property
@@ -398,12 +402,29 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
 
   // Hang up the current call
   const hangupCall = useCallback(() => {
-    if (call) {
-      console.log('[useTwilioDevice] hangupCall: Hanging up call...');
-      call.disconnect(); // This should trigger the 'disconnect' event listeners
-      // State changes (isConnected=false etc) are handled by the disconnect listener
-    } else {
-        console.log('[useTwilioDevice] hangupCall: No active call to hang up.');
+    console.log('[useTwilioDevice] hangupCall: Attempting to hang up call...');
+    
+    // Ensure we have a call to hang up
+    if (!call) {
+      console.log('[useTwilioDevice] hangupCall: No active call to hang up');
+      return;
+    }
+    
+    try {
+      // Disconnect the call - this will trigger the disconnect event handler
+      call.disconnect();
+      console.log('[useTwilioDevice] hangupCall: Disconnect initiated');
+      
+      // Also immediately set connecting to false to update UI
+      setIsConnecting(false);
+    } catch (err) {
+      console.error('[useTwilioDevice] hangupCall: Error hanging up call:', err);
+      
+      // Force state reset in case the disconnect event doesn't fire
+      setIsConnecting(false);
+      setIsConnected(false);
+      setIsAccepted(false);
+      setCall(null);
     }
   }, [call]);
 

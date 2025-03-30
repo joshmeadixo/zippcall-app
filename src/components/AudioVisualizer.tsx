@@ -1,120 +1,55 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface AudioVisualizerProps {
   isActive: boolean;
 }
 
-// Define window with AudioContext
-interface AudioContextWindow extends Window {
-  AudioContext: typeof AudioContext;
-  webkitAudioContext: typeof AudioContext;
-}
-
 const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ isActive }) => {
-  const [audioLevel, setAudioLevel] = useState<number>(0);
-  const animationFrameRef = useRef<number | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const dataArrayRef = useRef<Uint8Array | null>(null);
-  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-
-  // Set up audio analyzer
+  const [iteration, setIteration] = useState(0);
+  
+  // Use a simple animation timer instead of real audio analysis
   useEffect(() => {
-    if (!isActive) {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close().catch(console.error);
-        audioContextRef.current = null;
-      }
-      return;
+    let intervalId: NodeJS.Timeout | null = null;
+    
+    if (isActive) {
+      // Create a pulsing effect with interval
+      intervalId = setInterval(() => {
+        setIteration(prev => (prev + 1) % 20); // Cycle through 0-19 for animation
+      }, 150);
     }
-
-    let stream: MediaStream | null = null;
-
-    const setupAudioAnalyzer = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        
-        // Create audio context
-        const windowWithAudioContext = window as unknown as AudioContextWindow;
-        const AudioContextClass = windowWithAudioContext.AudioContext || windowWithAudioContext.webkitAudioContext;
-        const audioContext = new AudioContextClass();
-        audioContextRef.current = audioContext;
-        
-        // Create analyser
-        const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 256;
-        analyserRef.current = analyser;
-        
-        // Create buffer for analyser data
-        const bufferLength = analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-        dataArrayRef.current = dataArray;
-        
-        // Create source from microphone stream
-        const source = audioContext.createMediaStreamSource(stream);
-        source.connect(analyser);
-        sourceRef.current = source;
-        
-        // Start animation loop
-        animationLoop();
-      } catch (error) {
-        console.error('Error setting up audio analyzer:', error);
-      }
-    };
-
-    // Animation loop to update audio levels
-    const animationLoop = () => {
-      if (!analyserRef.current || !dataArrayRef.current) return;
-      
-      analyserRef.current.getByteFrequencyData(dataArrayRef.current);
-      
-      // Calculate average volume level
-      let sum = 0;
-      for (let i = 0; i < dataArrayRef.current.length; i++) {
-        sum += dataArrayRef.current[i];
-      }
-      const avg = sum / dataArrayRef.current.length;
-      
-      // Normalize to 0-100 range
-      const normalizedLevel = Math.min(100, Math.max(0, avg * 1.5));
-      setAudioLevel(normalizedLevel);
-      
-      // Continue animation loop
-      animationFrameRef.current = requestAnimationFrame(animationLoop);
-    };
-
-    setupAudioAnalyzer();
-
+    
     // Clean up
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      if (sourceRef.current) {
-        sourceRef.current.disconnect();
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close().catch(console.error);
-      }
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+      if (intervalId) {
+        clearInterval(intervalId);
       }
     };
   }, [isActive]);
 
+  // Create a simulated audio visualization pattern based on iteration
+  const generateBarHeight = (barIndex: number): number => {
+    if (!isActive) return 5; // Minimum height when inactive
+    
+    // Create a sine wave pattern based on the current iteration
+    const baseHeight = 20 + Math.sin(((iteration + barIndex) % 10) / 3 * Math.PI) * 30;
+    
+    // Add variation based on bar position
+    const positionVariation = 10 - Math.abs(barIndex - 5) * 2;
+    
+    return Math.max(5, Math.min(80, baseHeight + positionVariation));
+  };
+
   // Generate the bars for the visualizer
   const bars = Array.from({ length: 10 }, (_, i) => {
-    const barHeight = Math.min(100, Math.max(5, audioLevel - (i * 10)));
+    const barHeight = generateBarHeight(i);
+    
     return (
       <div 
         key={i}
         className="w-1 bg-blue-400 rounded-full mx-px transition-all duration-75"
         style={{ 
-          height: `${isActive ? barHeight : 5}%`,
-          opacity: isActive ? (barHeight / 100) : 0.2
+          height: `${barHeight}%`,
+          opacity: isActive ? ((barHeight / 100) + 0.2) : 0.2
         }}
       />
     );

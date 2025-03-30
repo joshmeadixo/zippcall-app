@@ -58,12 +58,15 @@ export default function VoiceCall({
     }
   }, [call, isConnected, isConnecting, isIncomingCall]);
 
-  // Update call start time and handle call end - **MODIFIED TO RESET STATE**
+  // Update call start time and handle call end - **MODIFIED TO REDUCE RE-RENDERS**
   useEffect(() => {
+    // Only set call start time when call is first accepted
     if (isAccepted && !callStartTime) {
       setCallStartTime(Date.now());
-    } else if (!isConnected && callStartTime) {
-      // Call ended, save to history first
+    } 
+    // Only handle call end when we have a call that has ended
+    else if (!isConnected && callStartTime && !isConnecting) {
+      // Call ended, save to history
       const newCall: CallHistoryEntry = {
         id: Date.now().toString(),
         phoneNumber: validatedE164Number || `+${getCountryCallingCode(selectedCountry)}${nationalPhoneNumber}` || 'Unknown', 
@@ -72,7 +75,9 @@ export default function VoiceCall({
         direction: isIncomingCall ? 'incoming' : 'outgoing',
         status: 'answered' 
       };
-      const updatedHistory = [newCall, ...callHistory].slice(0, 50); 
+      
+      // Update call history
+      const updatedHistory = [newCall, ...callHistory].slice(0, 50);
       setCallHistory(updatedHistory);
       
       // Notify parent if callback provided
@@ -80,21 +85,21 @@ export default function VoiceCall({
         onHistoryUpdate(updatedHistory);
       }
 
-      // --- Reset state after call ends --- 
+      // Reset all call-related state at once
       setCallStartTime(null);
-      setCountrySelected(false);       // Force country re-selection
-      setSelectedCountry('US');        // Reset to default country
-      setNationalPhoneNumber('');      // Clear national number
-      setIsPhoneNumberValid(false);    // Reset validation
-      setValidatedE164Number('');   // Clear validated number
-      // Reset incoming call flag if it was set
+      setCountrySelected(false);
+      setSelectedCountry('US');
+      setNationalPhoneNumber('');
+      setIsPhoneNumberValid(false);
+      setValidatedE164Number('');
+      
+      // Reset incoming call flag if needed
       if (isIncomingCall) {
         setIsIncomingCall(false);
       }
-      // --- End of state reset --- 
     }
-  // Ensure dependencies are correct
-  }, [isAccepted, isConnected, callStartTime, nationalPhoneNumber, validatedE164Number, selectedCountry, isIncomingCall, callHistory, onHistoryUpdate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAccepted, isConnected, isConnecting, callStartTime]);
 
   // Check for initialization taking too long
   useEffect(() => {
