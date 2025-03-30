@@ -496,7 +496,7 @@ export default function VoiceCall({
                     <GlobeAmericasIcon className="h-8 w-8 text-blue-500 mx-auto mb-2" />
                     <p className="font-medium text-blue-800">Please select a country first</p>
                     <p className="text-sm text-blue-600 mt-1">
-                      Select your destination country from the dropdown below to enable dialing
+                      Click on the flag or country dropdown below and select your destination country to enable dialing
                     </p>
                   </div>
                 )}

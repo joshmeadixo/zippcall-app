@@ -106,14 +106,6 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
     }
   };
 
-  // When component mounts, notify parent if US is pre-selected
-  useEffect(() => {
-    // Default country is already selected, so notify parent
-    if (onCountrySelect) {
-      onCountrySelect();
-    }
-  }, [onCountrySelect]); // Add onCountrySelect as a dependency
-
   return (
     <div className="phone-input-wrapper">
       <div className="bg-gray-100 rounded-lg p-2">
