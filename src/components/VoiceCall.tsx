@@ -122,11 +122,6 @@ export default function VoiceCall({ userId }: VoiceCallProps) {
     }
   };
 
-  const handleToggleSpeaker = (isSpeakerOn: boolean) => {
-    // This would require device-specific handling
-    console.log('Speaker toggled:', isSpeakerOn);
-  };
-
   const handleCallSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!phoneNumber.trim()) return;
@@ -412,7 +407,6 @@ export default function VoiceCall({ userId }: VoiceCallProps) {
                 <CallControls 
                   onHangup={hangupCall}
                   onToggleMute={handleToggleMute}
-                  onToggleSpeaker={handleToggleSpeaker}
                 />
                 
                 {/* Dialpad for active call (for IVR navigation) */}

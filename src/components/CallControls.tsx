@@ -1,40 +1,28 @@
 import React, { useState } from 'react';
 import { 
   MicrophoneIcon, 
-  SpeakerWaveIcon, 
-  PhoneXMarkIcon,
-  SpeakerXMarkIcon
+  PhoneXMarkIcon
 } from '@heroicons/react/24/solid';
 import { NoSymbolIcon } from '@heroicons/react/24/outline';
 
 interface CallControlsProps {
   onHangup: () => void;
   onToggleMute: (isMuted: boolean) => void;
-  onToggleSpeaker: (isSpeakerOn: boolean) => void;
   disabled?: boolean;
 }
 
 const CallControls: React.FC<CallControlsProps> = ({ 
   onHangup, 
   onToggleMute, 
-  onToggleSpeaker,
   disabled = false 
 }) => {
   const [isMuted, setIsMuted] = useState(false);
-  const [isSpeakerOn, setIsSpeakerOn] = useState(false);
   
   const handleToggleMute = () => {
     if (disabled) return;
     const newMuteState = !isMuted;
     setIsMuted(newMuteState);
     onToggleMute(newMuteState);
-  };
-  
-  const handleToggleSpeaker = () => {
-    if (disabled) return;
-    const newSpeakerState = !isSpeakerOn;
-    setIsSpeakerOn(newSpeakerState);
-    onToggleSpeaker(newSpeakerState);
   };
 
   return (
@@ -59,26 +47,6 @@ const CallControls: React.FC<CallControlsProps> = ({
           </div>
         ) : (
           <MicrophoneIcon className="h-6 w-6" />
-        )}
-      </button>
-      
-      {/* Speaker button */}
-      <button
-        onClick={handleToggleSpeaker}
-        disabled={disabled}
-        className={`rounded-full p-4 flex items-center justify-center transition-colors
-          ${disabled 
-            ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
-            : isSpeakerOn
-              ? 'bg-blue-100 text-blue-600'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        aria-label={isSpeakerOn ? 'Speaker off' : 'Speaker on'}
-      >
-        {isSpeakerOn ? (
-          <SpeakerWaveIcon className="h-6 w-6" />
-        ) : (
-          <SpeakerXMarkIcon className="h-6 w-6" />
         )}
       </button>
       
