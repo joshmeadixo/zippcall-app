@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Device, Call } from '@twilio/voice-sdk';
 
+// Keep simpler interface for the expected error structure
+interface PotentialTwilioError {
+    code: number;
+    message: string;
+}
+
 interface UseTwilioDeviceProps {
   userId: string;
 }
@@ -30,156 +36,128 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
 
   // Initialize the device
   useEffect(() => {
-    if (!userId) return;
-
+    console.log('[useTwilioDevice] Initialize Effect Triggered. userId:', userId);
     let isMounted = true;
-    let localStream: MediaStream | null = null;
-    
-    const initDevice = async () => {
-      try {
-        // First, ensure we have microphone access before initializing
-        try {
-          // This will trigger the browser's permission prompt if needed
-          localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          console.log('Microphone access granted');
-        } catch (err) {
-          console.error('Error accessing microphone:', err);
-          if (isMounted) setError('Microphone access is required for calls');
-          return;
-        }
+    let localDevice: Device | null = null; // Keep local reference for cleanup
 
-        // Fetch a token from our API
+    const initializeDevice = async () => {
+      if (!userId) {
+        console.log('[useTwilioDevice] No userId, skipping initialization.');
+        return;
+      }
+      
+      try {
+        console.log('[useTwilioDevice] Fetching Twilio token...');
         const response = await fetch('/api/twilio-token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId }),
         });
-
         if (!response.ok) {
-          throw new Error('Failed to fetch token');
+          throw new Error(`Failed to fetch token: ${response.statusText}`);
         }
+        const data = await response.json();
+        const token = data.token;
+        console.log('[useTwilioDevice] Token fetched successfully.');
 
-        const { token } = await response.json();
+        if (!isMounted) return; // Prevent setting state if unmounted
+
+        console.log('[useTwilioDevice] Creating new Twilio Device instance...');
+        localDevice = new Device(token, {
+          logLevel: 1, // 0 = errors, 1 = warnings, 2 = info, 3 = debug, 4 = trace
+          codecPreferences: [Call.Codec.Opus, Call.Codec.PCMU],
+          // Ensure edge is explicitly set if needed for your region/setup
+          // edge: 'your_edge_location' // e.g., 'ashburn', 'frankfurt' 
+        });
         
-        // Create a new Device with appropriate options
-        const newDevice = new Device(token, {
-          logLevel: 'debug',
-        });
+        await localDevice.register();
+        console.log('[useTwilioDevice] Device registered.');
 
-        // Set up event listeners
-        newDevice.on('registered', () => {
-          if (isMounted) setIsReady(true);
-        });
-
-        newDevice.on('error', (twilioError) => {
-          console.error('Twilio device error:', twilioError);
-          if (isMounted) setError(twilioError.message);
-        });
-
-        newDevice.on('incoming', (incomingCall) => {
-          setCall(incomingCall);
-          
-          // Set up call event listeners
-          incomingCall.on('accept', () => {
-            if (isMounted) {
-              setIsConnected(true);
-              setIsAccepted(true);
-            }
-          });
-          
-          incomingCall.on('disconnect', () => {
-            if (isMounted) {
-              setCall(null);
-              setIsConnected(false);
-              setIsAccepted(false);
-            }
-          });
-
-          incomingCall.on('cancel', () => {
-            if (isMounted) {
-              setCall(null);
-              setIsAccepted(false);
-            }
-          });
-        });
-
-        // Register the device to receive incoming calls
-        await newDevice.register();
-        
-        if (isMounted) setDevice(newDevice);
-      } catch (err) {
-        console.error('Error initializing Twilio device:', err);
-        if (isMounted) setError(err instanceof Error ? err.message : 'Unknown error');
+        if (isMounted) {
+          setDevice(localDevice);
+          setIsReady(true);
+          setError(null);
+        }
+      } catch (err: unknown) {
+        console.error('[useTwilioDevice] Initialization failed:', err);
+        if (isMounted) {
+          const message = err instanceof Error ? err.message : 'Unknown error during init';
+          setError(`Initialization failed: ${message}`);
+          setIsReady(false);
+          setDevice(null);
+        }
       }
     };
 
-    initDevice();
+    initializeDevice();
 
-    // Clean up
+    // Cleanup Function
     return () => {
       isMounted = false;
-      if (device) {
-        device.destroy();
+      console.log('[useTwilioDevice] Cleanup: Destroying device instance...');
+      if (localDevice) {
+        localDevice.disconnectAll(); // Disconnect active calls
+        localDevice.unregister();   // Unregister from Twilio
+        localDevice.destroy();      // Destroy the device instance
+        console.log('[useTwilioDevice] Cleanup: Device destroyed.');
       }
-      // Stop any media tracks if we had a stream
-      if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-      }
+      // Reset state on cleanup
+      setDevice(null);
+      setIsReady(false);
+      setCall(null);
+      setIsConnecting(false);
+      setIsConnected(false);
+      setIsAccepted(false);
+      // Keep error state? Maybe clear it here too?
+      // setError(null); 
     };
-  }, [userId]); // intentionally omitting 'device' to prevent infinite rerender loops
+  }, [userId]); // Effect runs when userId changes
 
   // Register listeners for device state changes
   useEffect(() => {
-    if (!device) return; // Don't register listeners if device isn't ready
+    if (!device || !isReady) return; // Only register if device is set and ready
 
+    console.log('[useTwilioDevice] Attaching listeners to device...');
+
+    // Define Handlers
     const handleReady = () => {
-      console.log('Twilio Device Ready');
-      setIsReady(true);
+      console.log('[useTwilioDevice] Event: Device Ready (already handled by init)');
+      // setIsReady(true); // Already set in init
     };
 
     const handleConnect = (connection: Call) => {
-      console.log('Call connected', connection);
+      console.log('[useTwilioDevice] Event: Call connected', connection);
       setIsConnecting(false);
       setIsConnected(true);
-      setCall(connection);
+      setCall(connection); 
     };
 
     const handleDisconnect = (connection: Call) => {
-      console.log('Call disconnected', connection);
+      console.log('[useTwilioDevice] Event: Call disconnected', connection);
       setIsConnecting(false);
       setIsConnected(false);
       setIsAccepted(false);
       setCall(null);
-      setError(null);
+      setError(null); 
     };
 
-    // Type guard to check if error has a code property
-    function isTwilioError(error: unknown): error is { code: number; message: string } {
+    // Simplified type guard checking for 'code' property
+    function isTwilioError(error: unknown): error is PotentialTwilioError {
       return (
         typeof error === 'object' && 
         error !== null && 
-        'code' in error && typeof (error as { code: unknown }).code === 'number' &&
-        'message' in error && typeof (error as { message: unknown }).message === 'string'
+        typeof (error as PotentialTwilioError).code === 'number' 
       );
     }
 
-    const handleErrorEvent = (error: unknown) => { // Type error as unknown
-      console.error('Twilio Device Error:', error);
+    const handleErrorEvent = (error: unknown) => {
+      console.error('[useTwilioDevice] Event: Twilio Device Error:', error);
       let errorMessage = 'An unknown error occurred';
-      if (isTwilioError(error)) { // Type guard narrows it down
-        errorMessage = `Error ${error.code}: ${error.message}`;
-        // Handle specific error codes
-        if (error.code === 31205) { 
-          errorMessage = 'Your session expired. Please refresh the page.';
-        } else if (error.code === 31000) { 
-          errorMessage = 'A general connection error occurred.';
-        } else if (error.code === 20104) { 
-          errorMessage = 'Invalid authentication token. Session may be invalid.';
-        } else if (error.code === 31005) { 
-          errorMessage = 'Cannot establish connection. Check your network.';
-        } else if (error.code === 31208) { 
-            errorMessage = 'Authentication failed. Please try again.';
-        }
+      if (isTwilioError(error)) { 
+        errorMessage = `Error ${error.code}: ${error.message || '(no message)'}`;
+        // Handle specific codes...
+      } else if (error instanceof Error) {
+          errorMessage = error.message;
       }
       setError(errorMessage);
       setIsConnecting(false);
@@ -188,117 +166,151 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
     };
 
     const handleIncoming = (connection: Call) => {
-      console.log('Incoming call:', connection);
-      setCall(connection);
-      connection.on('accept', () => {
-        console.log('Incoming call accepted');
-        setIsAccepted(true);
-        setIsConnected(true);
-      });
-      connection.on('reject', () => {
-        console.log('Incoming call rejected');
-        setCall(null);
-        setIsConnected(false);
-      });
-      connection.on('cancel', () => {
-        console.log('Incoming call cancelled by caller');
-        setCall(null);
-        setIsConnected(false);
-      });
-      connection.on('disconnect', () => {
-        console.log('Incoming call disconnected');
-        handleDisconnect(connection);
-      });
+      console.log('[useTwilioDevice] Event: Incoming call');
+      setCall(connection); 
+      
+      // Define listeners for this specific call
+      const handleAccept = () => { 
+          console.log('Incoming call accepted');
+          setIsAccepted(true);
+          setIsConnected(true);
+      }; 
+      const handleReject = () => { 
+          console.log('Incoming call rejected');
+          cleanupCallListeners(); 
+          setCall(null); 
+          setIsConnected(false);
+          setIsAccepted(false);
+      }; 
+      const handleCancel = () => { 
+          console.log('Incoming call cancelled');
+          cleanupCallListeners(); 
+          setCall(null); 
+          setIsConnected(false);
+          setIsAccepted(false);
+      }; 
+      const handleCallDisconnect = () => { 
+          console.log('Incoming call disconnected event');
+          cleanupCallListeners(); 
+          // Let the main device disconnect handler manage state
+          // handleDisconnect(connection); 
+      }; 
+      
+      // Cleanup function for *this specific call's* listeners
+      const cleanupCallListeners = () => {
+          console.log(`Cleaning up listeners for call SID: ${connection.parameters.CallSid}`);
+          connection.off('accept', handleAccept);
+          connection.off('reject', handleReject); 
+          connection.off('cancel', handleCancel);
+          connection.off('disconnect', handleCallDisconnect);
+      };
+      
+      // Attach listeners
+      connection.on('accept', handleAccept);
+      connection.on('reject', handleReject); 
+      connection.on('cancel', handleCancel);
+      connection.on('disconnect', handleCallDisconnect);
+
+      // Also trigger cleanup if the main device disconnects while this call exists
+      // This might be redundant if handleCallDisconnect always fires first
+      // const deviceDisconnectHandler = () => cleanupCallListeners();
+      // device.on('disconnect', deviceDisconnectHandler); 
+      // // Need to ensure deviceDisconnectHandler is removed in the outer cleanup! Very tricky.
+      // Let's rely on the call's own disconnect for now.
     };
 
-    device.on('ready', handleReady);
+    // Attach Listeners
+    device.on('ready', handleReady); // Though ready is usually handled by register()
     device.on('connect', handleConnect);
     device.on('disconnect', handleDisconnect);
     device.on('error', handleErrorEvent); 
     device.on('incoming', handleIncoming);
 
-    // Cleanup listeners when the component unmounts or userId changes
+    // Cleanup Device Listeners
     return () => {
-      device.off('ready', handleReady);
-      device.off('connect', handleConnect);
-      device.off('disconnect', handleDisconnect);
-      device.off('error', handleErrorEvent);
-      device.off('incoming', handleIncoming);
+      console.log('[useTwilioDevice] Cleanup: Removing device listeners...');
+      if (device) { // Check if device still exists
+        device.off('ready', handleReady);
+        device.off('connect', handleConnect);
+        device.off('disconnect', handleDisconnect);
+        device.off('error', handleErrorEvent);
+        device.off('incoming', handleIncoming);
+        console.log('[useTwilioDevice] Cleanup: Device listeners removed.');
+      }
     };
-  }, [userId]); // intentionally omitting 'device' to prevent infinite rerender loops
+  // Removed userId dependency - device listeners depend on the device instance itself
+  }, [device, isReady]); // Re-run ONLY if device instance or isReady state changes
 
   // Make an outgoing call
   const makeCall = useCallback(async (to: string) => {
-    if (!device) {
-      setError('Device is not initialized');
+    if (!device || !isReady) {
+      setError('Device not ready.');
+      console.error('[useTwilioDevice] makeCall: Device not ready.');
       return;
     }
-
     try {
+      console.log(`[useTwilioDevice] makeCall: Initiating call to ${to}`);
       setIsConnecting(true);
       setError(null);
-
-      // Make the call
-      const outgoingCall = await device.connect({
-        params: {
-          To: to,
-          // Additional parameters if needed
-        }
-      });
-
-      // Set up call event listeners
-      outgoingCall.on('accept', () => {
-        setIsConnected(true);
-        setIsConnecting(false);
-        setIsAccepted(true);
-      });
-
-      outgoingCall.on('disconnect', () => {
-        setCall(null);
-        setIsConnected(false);
-        setIsConnecting(false);
-        setIsAccepted(false);
-      });
-
-      outgoingCall.on('error', (callError) => {
-        console.error('Call error:', callError);
-        setError(callError.message);
-        setIsConnecting(false);
-        setIsAccepted(false);
-      });
-
+      const outgoingCall = await device.connect({ params: { To: to } });
+      console.log('[useTwilioDevice] makeCall: Call object created', outgoingCall);
       setCall(outgoingCall);
-    } catch (err) {
-      console.error('Error making call:', err);
-      setError(err instanceof Error ? err.message : 'Failed to make call');
+      setIsAccepted(true); 
+      
+      // Attach listeners to the outgoing call
+      const handleOutgoingDisconnect = () => {
+          console.log('[useTwilioDevice] Outgoing call disconnected.');
+          // Remove *this specific listener* before nulling state
+          outgoingCall.off('disconnect', handleOutgoingDisconnect);
+          setCall(null);
+          setIsConnected(false);
+          setIsConnecting(false);
+          setIsAccepted(false);
+      };
+      outgoingCall.on('disconnect', handleOutgoingDisconnect);
+      
+      // We also need to handle the initial 'connect' event for an outgoing call
+      // The device 'connect' listener handles this now.
+
+    } catch (err: unknown) {
+      console.error('[useTwilioDevice] makeCall: Error:', err);
+      const message = err instanceof Error ? err.message : 'Failed to initiate call';
+      setError(`Failed to make call: ${message}`);
       setIsConnecting(false);
+      setCall(null);
     }
-  }, [device]);
+  }, [device, isReady]);
 
   // Hang up the current call
   const hangupCall = useCallback(() => {
     if (call) {
-      call.disconnect();
-      setCall(null);
-      setIsConnected(false);
-      setIsConnecting(false);
-      setIsAccepted(false);
+      console.log('[useTwilioDevice] hangupCall: Hanging up call...');
+      call.disconnect(); // This should trigger the 'disconnect' event listeners
+      // State changes (isConnected=false etc) are handled by the disconnect listener
+    } else {
+        console.log('[useTwilioDevice] hangupCall: No active call to hang up.');
     }
   }, [call]);
 
   // Answer an incoming call
   const answerCall = useCallback(() => {
     if (call) {
+      console.log('[useTwilioDevice] answerCall: Accepting incoming call...');
       call.accept();
+      // isAccepted/isConnected state change handled by listener on call object
+    } else {
+         console.log('[useTwilioDevice] answerCall: No incoming call to answer.');
     }
   }, [call]);
 
   // Reject an incoming call
   const rejectCall = useCallback(() => {
     if (call) {
+      console.log('[useTwilioDevice] rejectCall: Rejecting incoming call...');
       call.reject();
-      setCall(null);
-      setIsAccepted(false);
+      // State changes handled by listener on call object
+    } else {
+        console.log('[useTwilioDevice] rejectCall: No incoming call to reject.');
     }
   }, [call]);
 
