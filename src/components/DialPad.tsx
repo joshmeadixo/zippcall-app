@@ -25,9 +25,6 @@ const DialPad = ({ onDigitPressed, onBackspace, disabled = false }: DialPadProps
   const playTone = useCallback(async (digit: string) => {
     if (disabled) return;
     
-    // Don't play tone for "+" as it's not a DTMF tone
-    if (digit === '+') return;
-    
     let freq1 = 0;
     let freq2 = 0;
     
@@ -49,14 +46,18 @@ const DialPad = ({ onDigitPressed, onBackspace, disabled = false }: DialPadProps
     }
     
     try {
-      // Create audio context
+      // Create audio context with a basic approach
       const windowWithAudioContext = window as unknown as AudioContextWindow;
       const AudioContextClass = windowWithAudioContext.AudioContext || windowWithAudioContext.webkitAudioContext;
       const audioCtx = new AudioContextClass();
       
-      // Ensure AudioContext is running (needed for Chrome and Safari)
+      // Make sure it's running
       if (audioCtx.state === 'suspended') {
-        await audioCtx.resume();
+        try {
+          await audioCtx.resume();
+        } catch {
+          console.warn('Failed to resume AudioContext');
+        }
       }
       
       // Create oscillators
@@ -80,11 +81,12 @@ const DialPad = ({ onDigitPressed, onBackspace, disabled = false }: DialPadProps
       osc1.start();
       osc2.start();
       
-      // Stop after short duration
+      // Stop after short duration and clean up
       setTimeout(() => {
         osc1.stop();
         osc2.stop();
-        audioCtx.close();
+        gainNode.disconnect();
+        audioCtx.close().catch(() => {});
       }, 150);
     } catch (err) {
       console.error('Error playing DTMF tone:', err);
