@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import 'react-phone-number-input/style.css';
-import PhoneInputWithCountry from 'react-phone-number-input';
-import { isPossiblePhoneNumber, parsePhoneNumber, CountryCode } from 'libphonenumber-js';
+import PhoneInputWithCountry, { Country } from 'react-phone-number-input';
+import { isPossiblePhoneNumber, parsePhoneNumber } from 'libphonenumber-js';
 import flags from 'react-phone-number-input/flags';
 
 interface PhoneInputWithFlagProps {
@@ -21,42 +21,72 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
 }) => {
   const [formattedValue, setFormattedValue] = useState(value);
   const [isValid, setIsValid] = useState(true);
+  const [userHasTyped, setUserHasTyped] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState<Country>('US');
 
   // Update formatted value when external value changes
   useEffect(() => {
     setFormattedValue(value);
+    
+    if (value) {
+      try {
+        const parsedNumber = parsePhoneNumber(value);
+        if (parsedNumber?.country) {
+          setSelectedCountry(parsedNumber.country);
+        }
+      } catch {
+        // Ignore parsing errors
+      }
+    }
   }, [value]);
 
   // Handle phone input change
   const handleChange = (newValue: string | undefined) => {
     const e164Value = newValue || '';
     setFormattedValue(e164Value);
-
-    // Check if the phone number is valid
+    
+    // Check if user has entered digits beyond country code
     if (e164Value) {
       try {
-        const isValid = isPossiblePhoneNumber(e164Value);
-        setIsValid(isValid);
+        const parsedNumber = parsePhoneNumber(e164Value);
+        
+        if (parsedNumber?.nationalNumber) {
+          const nationalLength = parsedNumber.nationalNumber.toString().length;
+          
+          // Only consider as typed if they've entered some digits
+          if (nationalLength > 0) {
+            setUserHasTyped(true);
+          }
+          
+          // Only validate if they've entered enough digits
+          if (userHasTyped && nationalLength >= 3) {
+            const isValid = isPossiblePhoneNumber(e164Value);
+            setIsValid(isValid);
+          } else {
+            setIsValid(true);
+          }
+        }
       } catch {
-        setIsValid(false);
+        // Do not show validation errors while typing
+        setIsValid(true);
       }
     } else {
-      // Empty is considered valid
+      // Empty input is valid
       setIsValid(true);
+      setUserHasTyped(false);
     }
 
-    // Always notify the parent component of changes
+    // Always notify parent of changes
     onChange(e164Value);
   };
 
-  // Get country code from phone number (for initial value)
-  const getDefaultCountry = (): CountryCode | undefined => {
-    if (!value) return undefined;
-    try {
-      const phoneNumber = parsePhoneNumber(value);
-      return phoneNumber?.country as CountryCode || undefined;
-    } catch {
-      return undefined;
+  // Handle country change from dropdown
+  const handleCountryChange = (country: Country | undefined) => {
+    if (country) {
+      setSelectedCountry(country);
+      // Reset validation when country changes
+      setIsValid(true);
+      setUserHasTyped(false);
     }
   };
 
@@ -66,21 +96,23 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
         <PhoneInputWithCountry
           international
           countryCallingCodeEditable={false}
-          defaultCountry={getDefaultCountry() || 'US' as CountryCode}
+          defaultCountry="US"
+          country={selectedCountry}
           value={formattedValue}
           onChange={handleChange}
+          onCountryChange={handleCountryChange}
           placeholder={placeholder}
           onFocus={onFocus}
           addInternationalOption={false}
           limitMaxLength={true}
           flags={flags}
-          className={`${isValid ? '' : 'border-red-500 border-2'} ${className}`}
+          className={`${isValid || !userHasTyped ? '' : 'border-red-500 border-2'} ${className}`}
           countrySelectProps={{
             arrowComponent: () => <span className="PhoneInputCountrySelectArrow" />
           }}
         />
       </div>
-      {!isValid && formattedValue && (
+      {!isValid && userHasTyped && formattedValue && (
         <p className="text-red-500 text-xs mt-1">
           Please enter a valid phone number
         </p>

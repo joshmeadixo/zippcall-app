@@ -60,6 +60,7 @@ body {
 /* Enhanced styling for country dropdown */
 .PhoneInputCountrySelect {
   position: relative;
+  z-index: 100; /* Ensure dropdown appears above other elements */
 }
 
 .PhoneInputCountrySelect option {
@@ -77,18 +78,43 @@ body {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   overflow-y: auto;
   max-height: 300px;
+  z-index: 100;
 }
 
 .PhoneInputCountrySelectOption {
+  display: flex !important;
+  align-items: center !important;
+  padding: 8px 12px !important;
+}
+
+.PhoneInputCountrySelectOption .PhoneInputCountryIcon {
+  margin-right: 10px !important;
+  width: 24px !important;
+  height: 18px !important;
+  object-fit: cover !important;
+  border-radius: 2px !important;
+}
+
+/* Improve dropdown appearance */
+.PhoneInputCountrySelect ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.PhoneInputCountrySelect ul li {
   display: flex;
   align-items: center;
   padding: 8px 12px;
+  cursor: pointer;
 }
 
-.PhoneInputCountrySelectOption .PhoneInputCountryFlag {
-  margin-right: 10px;
-  width: 24px;
-  height: 18px;
-  object-fit: cover;
-  border-radius: 2px;
+.PhoneInputCountrySelect ul li:hover {
+  background-color: #f3f4f6;
+}
+
+/* Force flag display */
+.iti__flag-container, .iti__flag {
+  display: inline-block !important;
+  visibility: visible !important;
 }
