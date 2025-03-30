@@ -151,13 +151,63 @@ export default function VoiceCall({ userId }: VoiceCallProps) {
       // Send DTMF tone during call
       call.sendDigits(digit);
     } else {
-      // Add digit to phone number input
-      setPhoneNumber(prev => prev + digit);
+      // Properly insert digit at cursor position for phone input
+      const phoneInput = document.getElementById('phone-input') as HTMLInputElement;
+      if (phoneInput) {
+        const start = phoneInput.selectionStart || phoneInput.value.length;
+        const end = phoneInput.selectionEnd || phoneInput.value.length;
+        const value = phoneInput.value;
+        
+        // Insert digit at cursor position
+        const newValue = value.substring(0, start) + digit + value.substring(end);
+        setPhoneNumber(newValue);
+        
+        // Set cursor position after the inserted digit
+        setTimeout(() => {
+          phoneInput.focus();
+          phoneInput.setSelectionRange(start + 1, start + 1);
+        }, 0);
+      } else {
+        // Fallback to appending the digit
+        setPhoneNumber(prev => prev + digit);
+      }
     }
   };
 
   const handleBackspace = () => {
-    setPhoneNumber(prev => prev.slice(0, -1));
+    const phoneInput = document.getElementById('phone-input') as HTMLInputElement;
+    if (phoneInput) {
+      const start = phoneInput.selectionStart || phoneInput.value.length;
+      const end = phoneInput.selectionEnd || phoneInput.value.length;
+      const value = phoneInput.value;
+      
+      if (start === end) {
+        // No selection, delete character before cursor
+        if (start > 0) {
+          const newValue = value.substring(0, start - 1) + value.substring(end);
+          setPhoneNumber(newValue);
+          
+          // Set cursor position
+          setTimeout(() => {
+            phoneInput.focus();
+            phoneInput.setSelectionRange(start - 1, start - 1);
+          }, 0);
+        }
+      } else {
+        // Delete selected text
+        const newValue = value.substring(0, start) + value.substring(end);
+        setPhoneNumber(newValue);
+        
+        // Set cursor position
+        setTimeout(() => {
+          phoneInput.focus();
+          phoneInput.setSelectionRange(start, start);
+        }, 0);
+      }
+    } else {
+      // Fallback to removing last character
+      setPhoneNumber(prev => prev.slice(0, -1));
+    }
   };
 
   const handleHistoryCallClick = (number: string) => {
@@ -224,12 +274,6 @@ export default function VoiceCall({ userId }: VoiceCallProps) {
             aria-label="Toggle call history"
           >
             <ClockIcon className="h-5 w-5" />
-          </button>
-          <button 
-            className="p-2 rounded-full hover:bg-blue-600"
-            aria-label="Settings"
-          >
-            <CogIcon className="h-5 w-5" />
           </button>
         </div>
       </div>
@@ -389,11 +433,15 @@ export default function VoiceCall({ userId }: VoiceCallProps) {
               <div>
                 <div className="mb-6">
                   <input
+                    id="phone-input"
                     type="tel"
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="+1 (234) 567-8900"
                     className="w-full bg-gray-100 border-0 rounded-lg p-4 text-xl text-center font-medium focus:ring-blue-500 focus:border-blue-500"
+                    onKeyDown={(e) => {
+                      e.stopPropagation(); // Prevent the global keyboard handler from capturing these keys
+                    }}
                   />
                 </div>
                 

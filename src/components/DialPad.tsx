@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
-import { BackspaceIcon } from '@heroicons/react/24/solid';
+import { BackspaceIcon, PlusIcon } from '@heroicons/react/24/solid';
 
 interface DialPadProps {
   onDigitPressed: (digit: string) => void;
@@ -24,6 +24,9 @@ const DialPad = ({ onDigitPressed, onBackspace, disabled = false }: DialPadProps
   // Play DTMF tone when a key is pressed
   const playTone = useCallback((digit: string) => {
     if (disabled) return;
+    
+    // Don't play tone for "+" as it's not a DTMF tone
+    if (digit === '+') return;
     
     let freq1 = 0;
     let freq2 = 0;
@@ -88,7 +91,7 @@ const DialPad = ({ onDigitPressed, onBackspace, disabled = false }: DialPadProps
     if (disabled) return;
     
     const key = e.key;
-    if (/^[0-9*#]$/.test(key)) {
+    if (/^[0-9*#+]$/.test(key)) { // Added + to the regex
       onDigitPressed(key);
       playTone(key);
     } else if (key === 'Backspace') {
@@ -111,7 +114,7 @@ const DialPad = ({ onDigitPressed, onBackspace, disabled = false }: DialPadProps
   };
 
   return (
-    <div className="select-none">
+    <div className="select-none mx-auto max-w-xs"> {/* Added mx-auto and max-w-xs to center the dialpad */}
       <div className="grid grid-cols-3 gap-3">
         {dialPadKeys.map((row, rowIndex) => (
           <React.Fragment key={`row-${rowIndex}`}>
@@ -134,7 +137,21 @@ const DialPad = ({ onDigitPressed, onBackspace, disabled = false }: DialPadProps
         ))}
       </div>
       
-      <div className="mt-4 flex justify-center">
+      <div className="mt-4 flex justify-center space-x-4">
+        {/* Added + button */}
+        <button
+          className={`rounded-full h-16 w-16 flex items-center justify-center
+            ${disabled 
+              ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+              : 'bg-blue-100 text-blue-700 hover:bg-blue-200 active:bg-blue-300'
+            } transition-colors`}
+          onClick={() => handleDigitClick('+')}
+          disabled={disabled}
+          aria-label="Add plus sign"
+        >
+          <PlusIcon className="h-6 w-6" />
+        </button>
+        
         <button
           className={`rounded-full h-16 w-16 flex items-center justify-center
             ${disabled 
