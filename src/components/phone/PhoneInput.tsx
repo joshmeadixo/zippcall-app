@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import 'react-phone-number-input/style.css';
 import PhoneInputWithCountry, { Country } from 'react-phone-number-input';
-import { isPossiblePhoneNumber, parsePhoneNumber } from 'libphonenumber-js';
 import flags from 'react-phone-number-input/flags';
+import { validatePhoneNumber, getValidationErrorMessage } from '@/utils/phoneValidation';
 
 interface PhoneInputWithFlagProps {
   value: string;
@@ -10,6 +10,7 @@ interface PhoneInputWithFlagProps {
   placeholder?: string;
   className?: string;
   onFocus?: () => void;
+  onValidityChange?: (isValid: boolean, formattedNumber?: string) => void;
 }
 
 const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
@@ -17,67 +18,67 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
   onChange,
   placeholder = "+1 (234) 567-8900",
   className = "",
-  onFocus
+  onFocus,
+  onValidityChange
 }) => {
   const [formattedValue, setFormattedValue] = useState(value);
   const [isValid, setIsValid] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string>('');
   const [userHasTyped, setUserHasTyped] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<Country>('US');
+
+  // Validate the phone number - defined with useCallback before it's used
+  const validateCurrentNumber = useCallback((phoneNumber: string, country: string) => {
+    if (!phoneNumber || !userHasTyped) {
+      setIsValid(true);
+      setErrorMessage('');
+      return;
+    }
+
+    // Only validate if user has entered something
+    if (phoneNumber.trim().length > 2) {
+      const validationResult = validatePhoneNumber(phoneNumber, country);
+      const valid = validationResult.isValid;
+      setIsValid(valid);
+      
+      // Set appropriate error message
+      setErrorMessage(valid ? '' : getValidationErrorMessage(validationResult));
+      
+      // Notify parent component if needed
+      if (onValidityChange) {
+        onValidityChange(valid, validationResult.e164Number);
+      }
+    } else {
+      setIsValid(true);
+      setErrorMessage('');
+    }
+  }, [userHasTyped, onValidityChange]);
 
   // Update formatted value when external value changes
   useEffect(() => {
     setFormattedValue(value);
-    
-    if (value) {
-      try {
-        const parsedNumber = parsePhoneNumber(value);
-        if (parsedNumber?.country) {
-          setSelectedCountry(parsedNumber.country);
-        }
-      } catch {
-        // Ignore parsing errors
-      }
-    }
-  }, [value]);
+    validateCurrentNumber(value, selectedCountry as string);
+  }, [value, selectedCountry, validateCurrentNumber]);
 
   // Handle phone input change
   const handleChange = (newValue: string | undefined) => {
-    const e164Value = newValue || '';
-    setFormattedValue(e164Value);
+    const inputValue = newValue || '';
+    setFormattedValue(inputValue);
     
-    // Check if user has entered digits beyond country code
-    if (e164Value) {
-      try {
-        const parsedNumber = parsePhoneNumber(e164Value);
-        
-        if (parsedNumber?.nationalNumber) {
-          const nationalLength = parsedNumber.nationalNumber.toString().length;
-          
-          // Only consider as typed if they've entered some digits
-          if (nationalLength > 0) {
-            setUserHasTyped(true);
-          }
-          
-          // Only validate if they've entered enough digits
-          if (userHasTyped && nationalLength >= 3) {
-            const isValid = isPossiblePhoneNumber(e164Value);
-            setIsValid(isValid);
-          } else {
-            setIsValid(true);
-          }
-        }
-      } catch {
-        // Do not show validation errors while typing
-        setIsValid(true);
-      }
+    // Set user has typed flag
+    if (inputValue && inputValue.length > 0) {
+      setUserHasTyped(true);
     } else {
-      // Empty input is valid
-      setIsValid(true);
       setUserHasTyped(false);
+    }
+    
+    // Validate after user has typed
+    if (userHasTyped) {
+      validateCurrentNumber(inputValue, selectedCountry as string);
     }
 
     // Always notify parent of changes
-    onChange(e164Value);
+    onChange(inputValue);
   };
 
   // Handle country change from dropdown
@@ -86,6 +87,7 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
       setSelectedCountry(country);
       // Reset validation when country changes
       setIsValid(true);
+      setErrorMessage('');
       setUserHasTyped(false);
     }
   };
@@ -115,7 +117,7 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
       </div>
       {!isValid && userHasTyped && formattedValue && (
         <p className="text-red-500 text-xs mt-1">
-          Please enter a valid phone number
+          {errorMessage || 'Please enter a valid phone number'}
         </p>
       )}
     </div>

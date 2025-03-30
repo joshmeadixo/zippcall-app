@@ -8,6 +8,7 @@ import CallControls from './CallControls';
 import AudioVisualizer from './AudioVisualizer';
 import CallHistory, { CallHistoryEntry } from './CallHistory';
 import PhoneInputWithFlag from './phone/PhoneInput';
+import { validatePhoneNumber } from '@/utils/phoneValidation';
 
 interface VoiceCallProps {
   userId: string;
@@ -29,6 +30,8 @@ export default function VoiceCall({
   const [showDialpad, setShowDialpad] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [callHistory, setCallHistory] = useState<CallHistoryEntry[]>([]);
+  const [isPhoneNumberValid, setIsPhoneNumberValid] = useState(false);
+  const [validatedE164Number, setValidatedE164Number] = useState<string>('');
 
   const {
     isReady,
@@ -138,14 +141,38 @@ export default function VoiceCall({
     }
   };
 
+  const handlePhoneValidityChange = (isValid: boolean, formattedNumber?: string) => {
+    setIsPhoneNumberValid(isValid);
+    if (isValid && formattedNumber) {
+      setValidatedE164Number(formattedNumber);
+    } else {
+      setValidatedE164Number('');
+    }
+  };
+
   const handleCallSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!phoneNumber.trim()) return;
-    await startCall(phoneNumber);
+    
+    // Don't allow calls with invalid numbers
+    if (!isPhoneNumberValid || !validatedE164Number) {
+      // Manual validation as a fallback
+      const selectedCountry = document.querySelector('.PhoneInputCountrySelect')?.getAttribute('data-country') || 'US';
+      const validation = validatePhoneNumber(phoneNumber, selectedCountry);
+      
+      if (validation.isValid && validation.e164Number) {
+        setValidatedE164Number(validation.e164Number);
+        await startCall(validation.e164Number);
+      } else {
+        console.error('Invalid phone number:', phoneNumber);
+        return;
+      }
+    } else {
+      await startCall(validatedE164Number);
+    }
   };
 
   const startCall = async (number: string) => {
-    // Phone number is already in E.164 format from the PhoneInputWithFlag component
+    // Phone number is already validated and in E.164 format
     const formattedNumber = number.trim();
     
     setPhoneNumber(formattedNumber);
@@ -509,6 +536,7 @@ export default function VoiceCall({
                     onChange={setPhoneNumber}
                     placeholder="+1 (234) 567-8900"
                     onFocus={() => {}}
+                    onValidityChange={handlePhoneValidityChange}
                   />
                   {phoneNumber && (
                     <button
@@ -529,13 +557,14 @@ export default function VoiceCall({
                 <div className="mt-6 flex justify-center">
                   <button
                     onClick={handleCallSubmit}
-                    disabled={!phoneNumber.trim() || !isReady}
+                    disabled={!phoneNumber.trim() || !isReady || !isPhoneNumberValid}
                     className={`rounded-full p-5 flex items-center justify-center
-                      ${!phoneNumber.trim() || !isReady 
+                      ${!phoneNumber.trim() || !isReady || !isPhoneNumberValid
                         ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                         : 'bg-green-500 text-white hover:bg-green-600'
                       }`}
                     aria-label="Make call"
+                    title={!isPhoneNumberValid && phoneNumber.trim() ? "Please enter a valid phone number" : "Make call"}
                   >
                     <PhoneArrowUpRightIcon className="h-6 w-6" />
                   </button>
