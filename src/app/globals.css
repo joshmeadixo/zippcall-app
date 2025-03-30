@@ -5,3 +5,54 @@
 body {
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Phone input component styling */
+.phone-input-wrapper .PhoneInput {
+  display: flex;
+  align-items: center;
+  background-color: rgb(243, 244, 246);
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+}
+
+.phone-input-wrapper .PhoneInputCountry {
+  margin-right: 0.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.phone-input-wrapper .PhoneInputCountryIcon {
+  width: 2rem;
+  height: 1.25rem;
+  border-radius: 0.25rem;
+  overflow: hidden;
+}
+
+.phone-input-wrapper .PhoneInputCountrySelectArrow {
+  margin-left: 0.5rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-style: solid;
+  border-color: #4b5563;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.phone-input-wrapper .PhoneInputInput {
+  flex: 1;
+  min-width: 0;
+  background-color: transparent;
+  border: none;
+  font-size: 1.1rem;
+  padding: 0.5rem;
+}
+
+.phone-input-wrapper .PhoneInputInput:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+  border-radius: 0.25rem;
+}
+
+.phone-input-wrapper .PhoneInputInput::placeholder {
+  color: rgb(156, 163, 175);
+}

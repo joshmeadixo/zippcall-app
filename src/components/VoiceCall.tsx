@@ -7,6 +7,7 @@ import CallTimer from './CallTimer';
 import CallControls from './CallControls';
 import AudioVisualizer from './AudioVisualizer';
 import CallHistory, { CallHistoryEntry } from './CallHistory';
+import PhoneInputWithFlag from './phone/PhoneInput';
 
 interface VoiceCallProps {
   userId: string;
@@ -144,12 +145,8 @@ export default function VoiceCall({
   };
 
   const startCall = async (number: string) => {
-    // Format phone number to add + if needed and remove any spaces or formatting
-    let formattedNumber = number.trim();
-    // Remove any non-digit characters except the leading +
-    formattedNumber = formattedNumber.startsWith('+') 
-      ? '+' + formattedNumber.substring(1).replace(/\D/g, '')
-      : '+' + formattedNumber.replace(/\D/g, '');
+    // Phone number is already in E.164 format from the PhoneInputWithFlag component
+    const formattedNumber = number.trim();
     
     setPhoneNumber(formattedNumber);
     
@@ -519,16 +516,11 @@ export default function VoiceCall({
               // Idle phone view with dial pad
               <div>
                 <div className="mb-6">
-                  <input
-                    id="phone-input"
-                    type="tel"
+                  <PhoneInputWithFlag
                     value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    onChange={setPhoneNumber}
                     placeholder="+1 (234) 567-8900"
-                    className="w-full bg-gray-100 border-0 rounded-lg p-4 text-xl text-center font-medium focus:ring-blue-500 focus:border-blue-500"
-                    onKeyDown={(e) => {
-                      e.stopPropagation(); // Prevent the global keyboard handler from capturing these keys
-                    }}
+                    onFocus={() => {}}
                   />
                 </div>
                 

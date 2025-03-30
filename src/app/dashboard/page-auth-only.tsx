@@ -68,9 +68,9 @@ export default function DashboardAuthOnly() {
       </header>
 
       <main className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
           {/* Left Column - Phone Card */}
-          <div>
+          <div className="md:col-span-2">
             <VoiceCall 
               userId={user.uid} 
               title="Phone" 
@@ -80,7 +80,7 @@ export default function DashboardAuthOnly() {
           </div>
           
           {/* Middle and Right Columns */}
-          <div className="md:col-span-2 space-y-6">
+          <div className="md:col-span-3 space-y-6">
             {/* Credits Card - Top Right */}
             <div className="bg-white rounded-lg shadow-md p-4">
               <div className="flex justify-between items-center mb-4">

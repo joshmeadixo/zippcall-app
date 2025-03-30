@@ -21,11 +21,13 @@
     "clsx": "^2.1.1",
     "firebase": "^11.5.0",
     "firebase-admin": "^13.2.0",
+    "libphonenumber-js": "^1.12.6",
     "lucide-react": "^0.485.0",
     "next": "15.2.4",
     "next-auth": "^4.24.11",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-phone-number-input": "^3.4.12",
     "tailwind-merge": "^3.0.2",
     "twilio": "^5.5.1"
   },
