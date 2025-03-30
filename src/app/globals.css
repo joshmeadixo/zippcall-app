@@ -81,6 +81,30 @@ body {
   z-index: 50;
 }
 
+/* Fix dropdown and position constraints */
+.dropdown-content {
+  z-index: 100 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  position: absolute !important;
+  overflow-y: auto !important;
+  max-height: 300px !important;
+  right: 0 !important;
+  left: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Improve dropdown appearance */
+.PhoneInputCountrySelect ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  z-index: 100;
+  max-width: 100%;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
 .PhoneInputCountrySelectOption {
   display: flex !important;
   align-items: center !important;
@@ -93,25 +117,6 @@ body {
   height: 18px !important;
   object-fit: cover !important;
   border-radius: 2px !important;
-}
-
-/* Improve dropdown appearance */
-.PhoneInputCountrySelect ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  z-index: 100;
-}
-
-.PhoneInputCountrySelect ul li {
-  display: flex;
-  align-items: center;
-  padding: 8px 12px;
-  cursor: pointer;
-}
-
-.PhoneInputCountrySelect ul li:hover {
-  background-color: #f3f4f6;
 }
 
 /* Force flag display */
@@ -131,11 +136,6 @@ body {
   overflow: hidden;
 }
 
-/* Fix dropdown display */
-.dropdown-content {
-  z-index: 100 !important;
-}
-
 /* Force flags to be visible */
 .PhoneInputCountry img,
 .PhoneInputCountrySelect img {
@@ -153,9 +153,16 @@ body {
   opacity: 1 !important;
 }
 
-/* Country selector only styling */
+/* Country selector wrapper */
 .country-selector-wrapper {
+  position: relative;
+  width: 100%;
   margin: 0.5rem 0;
+}
+
+.country-selector-wrapper .max-h-8 {
+  overflow: visible;
+  position: relative;
 }
 
 .country-selector-wrapper .PhoneInput {

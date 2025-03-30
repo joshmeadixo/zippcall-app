@@ -42,6 +42,15 @@ const CustomCountrySelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
     }
   };
 
+  // Use this function to get flag emoji
+  const getFlagEmoji = (countryCode: string): string => {
+    const codePoints = countryCode
+      .toUpperCase()
+      .split('')
+      .map(char => 127397 + char.charCodeAt(0));
+    return String.fromCodePoint(...codePoints);
+  };
+
   return (
     <div className="dropdown w-full relative">
       <label 
@@ -52,13 +61,9 @@ const CustomCountrySelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
         <div className="flex items-center">
           {selectedOption && (
             <>
-              <div className="mr-3">
-                {flags[selectedOption.value] && 
-                  React.createElement(
-                    flags[selectedOption.value] as React.ComponentType<{ title: string }>,
-                    { title: selectedOption.value }
-                  )
-                }
+              {/* Use flag emoji instead of component */}
+              <div className="mr-3 text-xl">
+                {getFlagEmoji(selectedOption.value)}
               </div>
               <span>{getCountryName(selectedOption.value)}</span>
               <span className="text-gray-400 ml-2">
@@ -85,7 +90,13 @@ const CustomCountrySelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
         <ul 
           tabIndex={0} 
           className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-full max-h-60 overflow-y-auto flex-col absolute z-50"
-          style={{ maxWidth: '100%', overflowX: 'hidden' }}
+          style={{ 
+            maxWidth: '100%', 
+            overflowX: 'hidden',
+            width: '100%',
+            left: '0',
+            right: '0'
+          }}
         >
           {/* First show popular countries */}
           {POPULAR_COUNTRIES.map((countryCode) => {
@@ -102,13 +113,9 @@ const CustomCountrySelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
                     setIsOpen(false);
                   }}
                 >
-                  <div className="mr-3">
-                    {flags[option.value] && 
-                      React.createElement(
-                        flags[option.value] as React.ComponentType<{ title: string }>,
-                        { title: option.value }
-                      )
-                    }
+                  {/* Use flag emoji */}
+                  <div className="mr-3 text-xl">
+                    {getFlagEmoji(option.value)}
                   </div>
                   <span className="whitespace-nowrap overflow-hidden text-ellipsis">
                     {getCountryName(option.value)}
@@ -136,13 +143,9 @@ const CustomCountrySelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
                   setIsOpen(false);
                 }}
               >
-                <div className="mr-3">
-                  {flags[option.value] && 
-                    React.createElement(
-                      flags[option.value] as React.ComponentType<{ title: string }>,
-                      { title: option.value }
-                    )
-                  }
+                {/* Use flag emoji */}
+                <div className="mr-3 text-xl">
+                  {getFlagEmoji(option.value)}
                 </div>
                 <span className="whitespace-nowrap overflow-hidden text-ellipsis">
                   {getCountryName(option.value)}

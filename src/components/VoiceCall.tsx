@@ -523,7 +523,7 @@ export default function VoiceCall({
                 )}
                 
                 {/* Separate country selector */}
-                <div className={`mb-3 p-2 rounded-lg border ${countrySelected ? 'border-green-300 bg-green-50' : 'border-blue-300 bg-blue-50'}`}>
+                <div className={`mb-3 p-2 rounded-lg border relative ${countrySelected ? 'border-green-300 bg-green-50' : 'border-blue-300 bg-blue-50'}`}>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs font-medium text-gray-700">
                       {countrySelected ? "Selected Country" : "Select Country"}
@@ -538,7 +538,7 @@ export default function VoiceCall({
                     )}
                   </div>
                   
-                  <div className="mt-1">
+                  <div className="mt-1 relative z-10">
                     <div className="max-w-xs mx-auto">
                       <PhoneInputCountry
                         international
