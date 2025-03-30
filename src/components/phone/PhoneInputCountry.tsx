@@ -43,7 +43,7 @@ const CustomCountrySelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
   };
 
   return (
-    <div className="dropdown w-full">
+    <div className="dropdown w-full relative">
       <label 
         tabIndex={0} 
         className="btn btn-ghost w-full justify-between bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 focus:outline-none"
@@ -52,8 +52,13 @@ const CustomCountrySelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
         <div className="flex items-center">
           {selectedOption && (
             <>
-              <div className="w-6 h-4 mr-3 bg-gray-200 rounded-sm flex items-center justify-center text-xs">
-                {selectedOption.value}
+              <div className="mr-3">
+                {flags[selectedOption.value] && 
+                  React.createElement(
+                    flags[selectedOption.value] as React.ComponentType<{ title: string }>,
+                    { title: selectedOption.value }
+                  )
+                }
               </div>
               <span>{getCountryName(selectedOption.value)}</span>
               <span className="text-gray-400 ml-2">
@@ -79,7 +84,7 @@ const CustomCountrySelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
       {isOpen && (
         <ul 
           tabIndex={0} 
-          className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-full max-h-60 overflow-y-auto flex-col"
+          className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-full max-h-60 overflow-y-auto flex-col absolute z-50"
           style={{ maxWidth: '100%', overflowX: 'hidden' }}
         >
           {/* First show popular countries */}
@@ -97,8 +102,13 @@ const CustomCountrySelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
                     setIsOpen(false);
                   }}
                 >
-                  <div className="w-6 h-4 mr-3 bg-gray-200 rounded-sm flex items-center justify-center text-xs">
-                    {option.value}
+                  <div className="mr-3">
+                    {flags[option.value] && 
+                      React.createElement(
+                        flags[option.value] as React.ComponentType<{ title: string }>,
+                        { title: option.value }
+                      )
+                    }
                   </div>
                   <span className="whitespace-nowrap overflow-hidden text-ellipsis">
                     {getCountryName(option.value)}
@@ -126,8 +136,13 @@ const CustomCountrySelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
                   setIsOpen(false);
                 }}
               >
-                <div className="w-6 h-4 mr-3 bg-gray-200 rounded-sm flex items-center justify-center text-xs">
-                  {option.value}
+                <div className="mr-3">
+                  {flags[option.value] && 
+                    React.createElement(
+                      flags[option.value] as React.ComponentType<{ title: string }>,
+                      { title: option.value }
+                    )
+                  }
                 </div>
                 <span className="whitespace-nowrap overflow-hidden text-ellipsis">
                   {getCountryName(option.value)}
@@ -156,17 +171,19 @@ const PhoneInputCountry: React.FC<PhoneInputCountryOnlyProps> = ({
 }) => {
   return (
     <div className={`country-selector-wrapper ${className}`}>
-      <PhoneInput
-        international={international}
-        countryCallingCodeEditable={countryCallingCodeEditable}
-        defaultCountry={defaultCountry}
-        value={value}
-        onChange={onChange}
-        onCountryChange={onCountryChange}
-        flags={flags}
-        inputClass={inputClass}
-        countrySelectComponent={CustomCountrySelect}
-      />
+      <div className="max-h-8">
+        <PhoneInput
+          international={international}
+          countryCallingCodeEditable={countryCallingCodeEditable}
+          defaultCountry={defaultCountry}
+          value={value}
+          onChange={onChange}
+          onCountryChange={onCountryChange}
+          flags={flags}
+          inputClass={inputClass}
+          countrySelectComponent={CustomCountrySelect}
+        />
+      </div>
     </div>
   );
 };

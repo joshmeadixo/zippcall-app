@@ -60,7 +60,7 @@ body {
 /* Enhanced styling for country dropdown */
 .PhoneInputCountrySelect {
   position: relative;
-  z-index: 100; /* Ensure dropdown appears above other elements */
+  z-index: 50; /* Ensure dropdown appears above other elements */
 }
 
 .PhoneInputCountrySelect option {
@@ -78,7 +78,7 @@ body {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   overflow-y: auto;
   max-height: 300px;
-  z-index: 100;
+  z-index: 50;
 }
 
 .PhoneInputCountrySelectOption {
@@ -100,6 +100,7 @@ body {
   list-style: none;
   padding: 0;
   margin: 0;
+  z-index: 100;
 }
 
 .PhoneInputCountrySelect ul li {
@@ -117,6 +118,39 @@ body {
 .iti__flag-container, .iti__flag {
   display: inline-block !important;
   visibility: visible !important;
+}
+
+/* Ensure the country flags are displayed properly */
+.dropdown .flag {
+  width: 24px;
+  height: 18px;
+  display: inline-block;
+  box-shadow: 0 0 1px 0 rgba(0,0,0,0.2);
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Fix dropdown display */
+.dropdown-content {
+  z-index: 100 !important;
+}
+
+/* Force flags to be visible */
+.PhoneInputCountry img,
+.PhoneInputCountrySelect img {
+  opacity: 1 !important;
+  display: inline-block !important;
+  width: 24px !important;
+  height: 18px !important;
+}
+
+/* Ensure all flag components are visible */
+[class^="flag-"], 
+[class*=" flag-"] {
+  display: inline-block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 /* Country selector only styling */
