@@ -202,12 +202,50 @@ export default function VoiceCall({
       // This will keep the country prefix if the phone input is empty or has just the country code
       if (!phoneNumber || phoneNumber.trim() === '') {
         // If the field is empty, we need to initialize with the selected country's code
+        // Get the country select element
         const countrySelect = document.querySelector('.PhoneInputCountrySelect') as HTMLSelectElement;
-        const selectedCountryCode = countrySelect?.value || 'US';
         
-        // Create a properly formatted number with the country code first
-        // We'll let the phone input component handle the full formatting
-        setPhoneNumber(`+${selectedCountryCode}${digit}`);
+        if (countrySelect) {
+          // Get the country code from the select element's value
+          const selectedCountryCode = countrySelect.value || 'US';
+          
+          // Get the country calling code (+1 for US, +44 for GB, etc.)
+          // We'll use a simple mapping for common countries
+          const callingCodes: Record<string, string> = {
+            'US': '1',
+            'CA': '1',
+            'GB': '44',
+            'AU': '61',
+            'DE': '49',
+            'FR': '33',
+            'ES': '34',
+            'IT': '39',
+            'CN': '86',
+            'JP': '81',
+            'IN': '91',
+            'BR': '55',
+            'RU': '7',
+            'MX': '52',
+            // Add more as needed
+          };
+          
+          // Get the calling code or use 1 (US) as fallback
+          const callingCode = callingCodes[selectedCountryCode] || '1';
+          
+          // Create a properly formatted number with the country code first
+          setPhoneNumber(`+${callingCode}${digit}`);
+          
+          // Also focus on the input field to maintain context
+          const phoneInput = document.getElementById('phone-input') as HTMLInputElement;
+          if (phoneInput) {
+            setTimeout(() => {
+              phoneInput.focus();
+            }, 0);
+          }
+        } else {
+          // Fallback if we can't find the country select
+          setPhoneNumber(`+1${digit}`);
+        }
       } else {
         // Otherwise just append the digit
         setPhoneNumber(prev => prev + digit);
