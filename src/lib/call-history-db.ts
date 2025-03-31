@@ -43,9 +43,11 @@ export async function saveCallHistory(userId: string, callEntry: CallHistoryEntr
 export async function getUserCallHistory(userId: string, maxResults = 50): Promise<CallHistoryEntry[]> {
   try {
     // Create a query for the user's call history, ordered by timestamp (descending)
+    // Include a where clause to filter out deleted calls
     const callsQuery = query(
       collection(db, CALL_HISTORY_COLLECTION),
       where('userId', '==', userId),
+      where('deleted', '!=', true), // Filter out deleted calls
       orderBy('timestamp', 'desc'),
       limit(maxResults)
     );
@@ -104,8 +106,12 @@ export async function deleteCallHistoryEntry(callId: string, userId: string): Pr
       return false;
     }
     
-    // Delete the call document
-    await setDoc(callRef, { deleted: true, deletedAt: Timestamp.now() }, { merge: true });
+    // Import deleteDoc directly here to avoid issues with circular dependencies
+    const { deleteDoc } = await import('firebase/firestore');
+    
+    // Permanently delete the call document instead of just marking it as deleted
+    await deleteDoc(callRef);
+    console.log(`[deleteCallHistoryEntry] Permanently deleted call ${callId}`);
     return true;
   } catch (error) {
     console.error('[deleteCallHistoryEntry] Error deleting call history:', error);
