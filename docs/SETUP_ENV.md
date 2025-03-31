@@ -8,8 +8,8 @@ ADMIN_API_SECRET=your_admin_secret_here
 NEXT_PUBLIC_ADMIN_TOKEN=your_admin_secret_here
 
 # Twilio API
-TWILIO_ACCOUNT_SID=your_twilio_account_sid
-TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # Firebase Admin (optional if you're not using Firebase Admin SDK)
 FIREBASE_ADMIN_PROJECT_ID=your_firebase_project_id
@@ -32,8 +32,8 @@ FIREBASE_ADMIN_PRIVATE_KEY="your_firebase_private_key"
    - Make sure there are no extra spaces before or after the values
    - Example format:
      ```
-     TWILIO_ACCOUNT_SID=AC1234567890abcdef1234567890abcdef
-     TWILIO_AUTH_TOKEN=1234567890abcdef1234567890abcdef
+     TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+     TWILIO_AUTH_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
      ```
 5. Restart your development server after adding these variables
 
