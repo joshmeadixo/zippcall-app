@@ -5,6 +5,8 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const to = formData.get('To') as string;
+    // Get caller ID from formData if provided, fall back to environment variable
+    const callerId = formData.get('CallerId') as string || process.env.TWILIO_CALLER_ID;
     
     const twiml = new twilio.twiml.VoiceResponse();
 
@@ -16,10 +18,14 @@ export async function POST(request: NextRequest) {
         twiml.dial().client(clientId);
       } else {
         // Otherwise, we're making a call to a regular phone number
-        const dial = twiml.dial({ callerId: process.env.TWILIO_CALLER_ID });
+        // Use provided caller ID or fall back to default
+        const dial = twiml.dial({ callerId });
         // Ensure the phone number is properly formatted without leading spaces
         const formattedNumber = to.trim();
         dial.number(formattedNumber);
+
+        // Log which caller ID is being used
+        console.log(`[voice] Making outgoing call to ${formattedNumber} with caller ID: ${callerId}`);
       }
     } else {
       // If there's no To parameter, we're receiving an incoming call

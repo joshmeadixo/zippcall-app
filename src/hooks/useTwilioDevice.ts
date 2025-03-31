@@ -576,9 +576,31 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
       setIsConnecting(true);
       setError(null);
       
-      // Connect with a simple params object
+      // Fetch a random number from our pool to use as the caller ID
+      let callerId;
+      try {
+        const response = await fetch('/api/twilio-numbers', {
+          method: 'POST',
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          callerId = data.phoneNumber;
+          console.log(`[useTwilioDevice] Using caller ID from pool: ${callerId}`);
+        } else {
+          console.warn('[useTwilioDevice] Failed to fetch caller ID from pool, will use default');
+        }
+      } catch (error) {
+        console.warn('[useTwilioDevice] Error fetching caller ID:', error);
+        // Continue with default caller ID
+      }
+      
+      // Connect with a params object including the caller ID if available
       const outgoingCall = await device.connect({ 
-        params: { To: to } 
+        params: { 
+          To: to,
+          ...(callerId && { CallerId: callerId })
+        } 
       });
       
       console.log('[useTwilioDevice] makeCall: Call connected');
