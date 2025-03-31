@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     // Create a Voice grant for this token
     const voiceGrant = new VoiceGrant({
       outgoingApplicationSid: twimlAppSid,
-      incomingAllow: true,
+      incomingAllow: false,
     });
 
     // Create an access token which we will sign and return to the client

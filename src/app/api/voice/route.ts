@@ -23,8 +23,10 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // If there's no To parameter, we're receiving an incoming call
-      twiml.say('Thanks for calling. Please leave a message after the beep.');
-      twiml.record();
+      // Reject incoming calls with a message
+      twiml.say({ voice: 'alice', language: 'en-US' }, 
+        'This number belongs to Zipp Call Dot Com and does not accept incoming calls. If you were called from this number then someone was using our service to call you. Please visit our website Zipp Call Dot Come to make calls using our service.');
+      twiml.hangup();
     }
 
     return new NextResponse(twiml.toString(), {

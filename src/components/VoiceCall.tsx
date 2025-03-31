@@ -55,12 +55,13 @@ export default function VoiceCall({
     reinitializeDevice
   } = useTwilioDevice({ userId });
 
-  // Check for incoming calls
+  // Check for incoming calls - we don't need to handle these anymore since we auto-reject
   useEffect(() => {
-    if (call && !isConnected && !isConnecting && !isIncomingCall) {
-      setIsIncomingCall(true);
+    // Auto-rejection is handled at the device level, no need to set UI state for incoming calls
+    if (call && !isConnected && !isConnecting) {
+      console.log('Incoming call detected but will be automatically rejected');
     }
-  }, [call, isConnected, isConnecting, isIncomingCall]);
+  }, [call, isConnected, isConnecting]);
 
   // Update call start time and handle call end
   useEffect(() => {

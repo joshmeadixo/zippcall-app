@@ -492,57 +492,13 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
     };
 
     const handleIncoming = (connection: Call) => {
-      console.log('[useTwilioDevice] Event: Incoming call');
-      setCall(connection); 
+      console.log('[useTwilioDevice] Event: Incoming call - automatically rejecting');
       
-      // Define listeners for this specific call
-      const handleAccept = () => { 
-          console.log('Incoming call accepted');
-          setIsAccepted(true);
-          setIsConnected(true);
-      }; 
-      const handleReject = () => { 
-          console.log('Incoming call rejected');
-          cleanupCallListeners(); 
-          setCall(null); 
-          setIsConnected(false);
-          setIsAccepted(false);
-      }; 
-      const handleCancel = () => { 
-          console.log('Incoming call cancelled');
-          cleanupCallListeners(); 
-          setCall(null); 
-          setIsConnected(false);
-          setIsAccepted(false);
-      }; 
-      const handleCallDisconnect = () => { 
-          console.log('Incoming call disconnected event');
-          cleanupCallListeners(); 
-          // Let the main device disconnect handler manage state
-          // handleDisconnect(connection); 
-      }; 
+      // Automatically reject all incoming calls
+      connection.reject();
       
-      // Cleanup function for *this specific call's* listeners
-      const cleanupCallListeners = () => {
-          console.log(`Cleaning up listeners for call SID: ${connection.parameters.CallSid}`);
-          connection.off('accept', handleAccept);
-          connection.off('reject', handleReject); 
-          connection.off('cancel', handleCancel);
-          connection.off('disconnect', handleCallDisconnect);
-      };
-      
-      // Attach listeners
-      connection.on('accept', handleAccept);
-      connection.on('reject', handleReject); 
-      connection.on('cancel', handleCancel);
-      connection.on('disconnect', handleCallDisconnect);
-
-      // Also trigger cleanup if the main device disconnects while this call exists
-      // This might be redundant if handleCallDisconnect always fires first
-      // const deviceDisconnectHandler = () => cleanupCallListeners();
-      // device.on('disconnect', deviceDisconnectHandler); 
-      // // Need to ensure deviceDisconnectHandler is removed in the outer cleanup! Very tricky.
-      // Let's rely on the call's own disconnect for now.
+      // Log the rejection
+      console.log('[useTwilioDevice] Incoming call automatically rejected');
     };
 
     // Attach Listeners
