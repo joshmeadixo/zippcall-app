@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { PriceUpdateRecord } from '@/types/pricing';
 import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -12,11 +12,8 @@ export default function PriceChangeAlerts() {
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState<boolean>(false);
   
-  useEffect(() => {
-    loadPriceChanges();
-  }, [showAll]);
-  
-  const loadPriceChanges = async () => {
+  // Use useCallback to memoize the function so it can be used in the dependency array
+  const loadPriceChanges = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
@@ -60,7 +57,12 @@ export default function PriceChangeAlerts() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [showAll]); // Only re-create this function when showAll changes
+  
+  // Now use the loadPriceChanges in useEffect
+  useEffect(() => {
+    loadPriceChanges();
+  }, [loadPriceChanges]); // loadPriceChanges is now a stable dependency
   
   const formatDate = (date: Date) => {
     return date.toLocaleString();

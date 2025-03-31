@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPriceForPhoneNumber, calculateCallCost, getPricesForCountries } from '@/lib/pricing/pricing-engine';
-import { parsePhoneNumber } from 'libphonenumber-js';
 
 /**
  * GET handler for retrieving price for a specific phone number

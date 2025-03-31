@@ -12,7 +12,6 @@ import PhoneInputCountry from './phone/PhoneInputCountry';
 import { validatePhoneNumber, detectCountryFromE164, extractNationalNumber } from '@/utils/phoneValidation';
 import { Country, getCountryCallingCode } from 'react-phone-number-input';
 import CallPricing from './CallPricing';
-import { calculateCallCost } from '@/lib/pricing/pricing-engine';
 import { saveCallHistory } from '@/lib/call-history-db';
 
 interface VoiceCallProps {
@@ -25,6 +24,12 @@ interface VoiceCallProps {
 // Define the handle type for the forwarded ref
 export interface VoiceCallHandle {
   callNumber: (phoneNumber: string) => Promise<void>;
+}
+
+// Define interface for pricing information
+interface PricingInfo {
+  finalPrice?: number;
+  currentCost?: number;
 }
 
 // Convert to ForwardRefRenderFunction
@@ -50,16 +55,15 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
   const [initializationStartTime] = useState<number>(Date.now());
   const [showRefreshButton, setShowRefreshButton] = useState<boolean>(false);
   const [isReinitializing, setIsReinitializing] = useState<boolean>(false);
-  const [callCost, setCallCost] = useState<number | null>(null);
-  const [callRate, setCallRate] = useState<number | null>(null);
-  const pricingRef = useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [error, setError] = useState<string | null>(null);
+  const pricingRef = useRef<PricingInfo>({});
 
   const {
     isReady,
     isConnecting,
     isConnected,
     isAccepted,
-    error,
     waitingForMicPermission,
     makeCall,
     hangupCall,
@@ -356,8 +360,6 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
 
   // Add function to capture pricing info from the CallPricing component
   const handlePricingInfo = (price: number, cost: number) => {
-    setCallRate(price);
-    setCallCost(cost);
     // Store current pricing info in ref for access when call ends
     pricingRef.current = { finalPrice: price, currentCost: cost };
   };

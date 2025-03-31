@@ -1,24 +1,39 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CountryPricingCache, MarkupConfig, PhoneNumberPriceResponse } from '@/types/pricing';
+import { CountryPricingCache, TwilioPriceData } from '@/types/pricing';
 import { getCountryPricing } from '@/lib/pricing/pricing-db';
 import { formatPrice } from '@/lib/pricing/pricing-engine';
-import MarkupSettings from './MarkupSettings';
 import PriceChangeAlerts from './PriceChangeAlerts';
 
-export default function PricingDashboard() {
+interface PricingDashboardProps {
+  pricingData: Record<string, TwilioPriceData>;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export default function PricingDashboard({ pricingData: initialPricingData }: PricingDashboardProps) {
   const [pricingData, setPricingData] = useState<CountryPricingCache | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortField, setSortField] = useState<string>('countryName');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [showMarkupSettings, setShowMarkupSettings] = useState<boolean>(false);
   
   useEffect(() => {
-    loadPricingData();
-  }, []);
+    // If initialPricingData has content, use it instead of loading from API
+    if (initialPricingData && Object.keys(initialPricingData).length > 0) {
+      // Convert the initial data to the expected format
+      setPricingData({
+        version: 1,
+        lastUpdated: new Date(),
+        data: initialPricingData
+      });
+      setIsLoading(false);
+    } else {
+      // Otherwise load from API
+      loadPricingData();
+    }
+  }, [initialPricingData]);
   
   const loadPricingData = async () => {
     setIsLoading(true);
@@ -95,7 +110,7 @@ export default function PricingDashboard() {
     
     // Apply search filter
     const filteredArray = pricingArray.filter(item => {
-      const searchLower = searchTerm.toLowerCase();
+      const searchLower = searchQuery.toLowerCase();
       return (
         item.countryCode.toLowerCase().includes(searchLower) ||
         item.countryName.toLowerCase().includes(searchLower)
@@ -137,6 +152,56 @@ export default function PricingDashboard() {
     return new Date(date).toLocaleString();
   };
   
+  // Update filtered countries when search query changes
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value.toLowerCase();
+    setSearchQuery(query);
+    
+    if (!query) {
+      return;
+    }
+    
+    // Get all country codes and names from pricing data (safely)
+    const allCountryCodes = pricingData?.data ? Object.keys(pricingData.data) : [];
+    
+    // Filter countries based on search
+    const filtered = allCountryCodes.filter(code => {
+      // Check if both pricingData and its data property exist
+      if (!pricingData?.data) return false;
+      
+      const country = pricingData.data[code];
+      
+      // Check if country code or name matches the search query
+      return (
+        code.toLowerCase().includes(query) || 
+        (country.countryName && country.countryName.toLowerCase().includes(query))
+      );
+    });
+    
+    // Sort by relevance (exact matches first, then starts with, then includes)
+    filtered.sort((a, b) => {
+      // Safely access country names
+      const aName = (pricingData?.data?.[a]?.countryName || '').toLowerCase();
+      const bName = (pricingData?.data?.[b]?.countryName || '').toLowerCase();
+      
+      // Exact matches come first
+      if (a.toLowerCase() === query) return -1;
+      if (b.toLowerCase() === query) return 1;
+      if (aName === query) return -1;
+      if (bName === query) return 1;
+      
+      // Then "starts with" matches
+      if (a.toLowerCase().startsWith(query)) return -1;
+      if (b.toLowerCase().startsWith(query)) return 1;
+      if (aName.startsWith(query)) return -1;
+      if (bName.startsWith(query)) return 1;
+      
+      // Then alphabetical order
+      return a.localeCompare(b);
+    });
+    
+  };
+  
   if (isLoading && !pricingData) {
     return (
       <div className="p-6 bg-white shadow rounded-lg">
@@ -174,8 +239,8 @@ export default function PricingDashboard() {
             <input
               type="text"
               placeholder="Search by country name or code..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchQuery}
+              onChange={handleSearchChange}
               className="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-full focus:ring-blue-500 focus:border-blue-500"
             />
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -287,7 +352,7 @@ export default function PricingDashboard() {
               {formatPricingForDisplay().length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
-                    {searchTerm ? 'No countries match your search criteria' : 'No pricing data available'}
+                    {searchQuery ? 'No countries match your search criteria' : 'No pricing data available'}
                   </td>
                 </tr>
               )}
@@ -297,7 +362,7 @@ export default function PricingDashboard() {
         
         {/* Stats */}
         <div className="mt-4 p-3 bg-blue-50 rounded-md text-sm text-blue-700">
-          Showing {formatPricingForDisplay().length} countries {searchTerm && `matching "${searchTerm}"`}
+          Showing {formatPricingForDisplay().length} countries {searchQuery && `matching "${searchQuery}"`}
           {pricingData?.data && ` out of ${Object.keys(pricingData.data).length} total countries`}
         </div>
       </div>

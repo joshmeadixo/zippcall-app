@@ -1,4 +1,4 @@
-import { Timestamp, collection, doc, getDoc, getDocs, query, setDoc, where, updateDoc } from 'firebase/firestore';
+import { Timestamp, collection, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { CountryPricingCache, MarkupConfig, PriceUpdateRecord, TwilioPriceData } from '@/types/pricing';
 
@@ -87,7 +87,7 @@ export async function saveCountryPricing(pricingData: CountryPricingCache): Prom
     if (error instanceof Error) {
       console.error('Error details:', error.message);
       if ('code' in error) {
-        console.error('Error code:', (error as any).code);
+        console.error('Error code:', (error as { code: string }).code);
       }
     }
     return false;

@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import VoiceCall from '@/components/VoiceCall';
+import VoiceCall, { VoiceCallHandle } from '@/components/VoiceCall';
 import CallHistory, { CallHistoryEntry } from '@/components/CallHistory';
 import AdminNavLink from '@/components/AdminNavLink';
 import { getUserCallHistory, deleteCallHistoryEntry } from '@/lib/call-history-db';
@@ -15,7 +15,7 @@ export default function DashboardAuthOnly() {
   const [callHistory, setCallHistory] = useState<CallHistoryEntry[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   // Reference to the VoiceCall component
-  const voiceCallRef = useRef<any>(null);
+  const voiceCallRef = useRef<VoiceCallHandle>(null);
 
   useEffect(() => {
     if (!loading && !user) {
