@@ -43,38 +43,41 @@ export async function saveCallHistory(userId: string, callEntry: CallHistoryEntr
 export async function getUserCallHistory(userId: string, maxResults = 50): Promise<CallHistoryEntry[]> {
   try {
     // Create a query for the user's call history, ordered by timestamp (descending)
-    // We're no longer using soft-deletion, so we can simply query for all records
+    // Fetch all documents for this user
     const callsQuery = query(
       collection(db, CALL_HISTORY_COLLECTION),
       where('userId', '==', userId),
       orderBy('timestamp', 'desc'),
-      limit(maxResults)
+      limit(maxResults * 2) // Fetch more than we need in case some are deleted
     );
     
     // Execute the query
     const querySnapshot = await getDocs(callsQuery);
     
-    // Convert the query results to CallHistoryEntry objects
-    const callHistory: CallHistoryEntry[] = querySnapshot.docs.map(doc => {
-      const data = doc.data();
-      
-      // Convert Firestore Timestamp back to number (milliseconds)
-      const timestamp = data.timestamp instanceof Timestamp
-        ? data.timestamp.toMillis()
-        : data.timestamp;
-      
-      return {
-        id: doc.id,
-        phoneNumber: data.phoneNumber,
-        timestamp,
-        duration: data.duration,
-        direction: data.direction,
-        status: data.status,
-        cost: data.cost
-      };
-    });
+    // Convert the query results to CallHistoryEntry objects, filtering out deleted entries
+    const callHistory: CallHistoryEntry[] = querySnapshot.docs
+      .filter(doc => !doc.data().deleted) // Filter out deleted entries in JS rather than in the query
+      .slice(0, maxResults) // Apply the limit after filtering
+      .map(doc => {
+        const data = doc.data();
+        
+        // Convert Firestore Timestamp back to number (milliseconds)
+        const timestamp = data.timestamp instanceof Timestamp
+          ? data.timestamp.toMillis()
+          : data.timestamp;
+        
+        return {
+          id: doc.id,
+          phoneNumber: data.phoneNumber,
+          timestamp,
+          duration: data.duration,
+          direction: data.direction,
+          status: data.status,
+          cost: data.cost
+        };
+      });
     
-    console.log(`[getUserCallHistory] Found ${callHistory.length} call history entries for user ${userId}`);
+    console.log(`[getUserCallHistory] Found ${callHistory.length} active call history entries for user ${userId}`);
     return callHistory;
   } catch (error) {
     console.error('[getUserCallHistory] Error fetching call history:', error);
@@ -106,12 +109,14 @@ export async function deleteCallHistoryEntry(callId: string, userId: string): Pr
       return false;
     }
     
-    // Import deleteDoc directly here to avoid issues with circular dependencies
-    const { deleteDoc } = await import('firebase/firestore');
+    // Mark the document as deleted instead of trying to delete it
+    // This avoids permission issues while still removing it from the UI
+    await setDoc(callRef, { 
+      deleted: true, 
+      deletedAt: Timestamp.now() 
+    }, { merge: true });
     
-    // Permanently delete the call document instead of just marking it as deleted
-    await deleteDoc(callRef);
-    console.log(`[deleteCallHistoryEntry] Permanently deleted call ${callId}`);
+    console.log(`[deleteCallHistoryEntry] Marked call ${callId} as deleted`);
     return true;
   } catch (error) {
     console.error('[deleteCallHistoryEntry] Error deleting call history:', error);
