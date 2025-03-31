@@ -43,11 +43,10 @@ export async function saveCallHistory(userId: string, callEntry: CallHistoryEntr
 export async function getUserCallHistory(userId: string, maxResults = 50): Promise<CallHistoryEntry[]> {
   try {
     // Create a query for the user's call history, ordered by timestamp (descending)
-    // Include a where clause to filter out deleted calls
+    // We're no longer using soft-deletion, so we can simply query for all records
     const callsQuery = query(
       collection(db, CALL_HISTORY_COLLECTION),
       where('userId', '==', userId),
-      where('deleted', '!=', true), // Filter out deleted calls
       orderBy('timestamp', 'desc'),
       limit(maxResults)
     );
@@ -75,6 +74,7 @@ export async function getUserCallHistory(userId: string, maxResults = 50): Promi
       };
     });
     
+    console.log(`[getUserCallHistory] Found ${callHistory.length} call history entries for user ${userId}`);
     return callHistory;
   } catch (error) {
     console.error('[getUserCallHistory] Error fetching call history:', error);
