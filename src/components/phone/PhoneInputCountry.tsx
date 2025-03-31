@@ -200,7 +200,7 @@ const PhoneInputCountry: React.FC<PhoneInputCountryOnlyProps> = ({
   className = "", // This applies to the country-selector-wrapper
   international = true,
   countryCallingCodeEditable = false,
-  defaultCountry = "US",
+  defaultCountry,
 }) => {
   return (
     <div 

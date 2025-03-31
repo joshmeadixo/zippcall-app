@@ -34,7 +34,7 @@ export default function VoiceCall({
   const [isPhoneNumberValid, setIsPhoneNumberValid] = useState(false);
   const [validatedE164Number, setValidatedE164Number] = useState<string>('');
   const [countrySelected, setCountrySelected] = useState<boolean>(false);
-  const [selectedCountry, setSelectedCountry] = useState<Country>('US');
+  const [selectedCountry, setSelectedCountry] = useState<Country | undefined>(undefined);
   const [initializationStartTime] = useState<number>(Date.now());
   const [showRefreshButton, setShowRefreshButton] = useState<boolean>(false);
   const [isReinitializing, setIsReinitializing] = useState<boolean>(false);
@@ -80,7 +80,9 @@ export default function VoiceCall({
       // Call ended, save to history
       const newCall: CallHistoryEntry = {
         id: Date.now().toString(),
-        phoneNumber: validatedE164Number || `+${getCountryCallingCode(selectedCountry)}${nationalPhoneNumber}` || 'Unknown', 
+        phoneNumber: validatedE164Number || 
+          (selectedCountry ? `+${getCountryCallingCode(selectedCountry)}${nationalPhoneNumber}` : nationalPhoneNumber) || 
+          'Unknown', 
         timestamp: callStartTime,
         duration: Math.floor((Date.now() - callStartTime) / 1000),
         direction: isIncomingCall ? 'incoming' : 'outgoing',
@@ -99,7 +101,7 @@ export default function VoiceCall({
       // Reset all call-related state at once
       setCallStartTime(null);
       setCountrySelected(false);
-      setSelectedCountry('US');
+      setSelectedCountry(undefined);
       setNationalPhoneNumber('');
       setIsPhoneNumberValid(false);
       setValidatedE164Number('');
@@ -156,6 +158,11 @@ export default function VoiceCall({
   // Submit call
   const handleCallSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    
+    if (!selectedCountry) {
+      console.error('[handleCallSubmit] No country selected');
+      return;
+    }
     
     // console.log(`[handleCallSubmit] Attempting call with Country: ${selectedCountry}, NationalNumber: ${nationalPhoneNumber}`);
     const fullNumberToCall = `+${getCountryCallingCode(selectedCountry)}${nationalPhoneNumber}`;
@@ -415,7 +422,7 @@ export default function VoiceCall({
                 
                 <div className="mb-6 relative">
                   <PhoneInputWithFlag
-                    country={selectedCountry}
+                    country={selectedCountry || undefined}
                     nationalNumber={nationalPhoneNumber}
                     onNationalNumberChange={setNationalPhoneNumber}
                     placeholder="Enter number"

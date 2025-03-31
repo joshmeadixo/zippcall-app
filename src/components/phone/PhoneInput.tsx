@@ -6,7 +6,7 @@ import { validatePhoneNumber, getValidationErrorMessage } from '@/utils/phoneVal
 interface PhoneInputWithFlagProps {
   nationalNumber: string;
   onNationalNumberChange: (nationalNumber: string) => void;
-  country: Country;
+  country?: Country;
   placeholder?: string;
   className?: string;
   onFocus?: (event: React.FocusEvent<HTMLInputElement>) => void;
@@ -29,14 +29,21 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [userHasTyped, setUserHasTyped] = useState(!!nationalNumber);
 
-  const countryCallingCode = getCountryCallingCode(country);
-  const prefix = `+${countryCallingCode}`;
+  const countryCallingCode = country ? getCountryCallingCode(country) : '';
+  const prefix = countryCallingCode ? `+${countryCallingCode}` : '';
 
   useEffect(() => {
     setLocalNationalNumber(nationalNumber);
   }, [nationalNumber]);
 
-  const validateCurrentNumber = useCallback((numberToCheck: string, countryCode: Country) => {
+  const validateCurrentNumber = useCallback((numberToCheck: string, countryCode?: Country) => {
+    if (!countryCode) {
+      setIsValid(false);
+      setErrorMessage('Please select a country');
+      if (onValidityChange) onValidityChange(false, undefined);
+      return;
+    }
+
     const MIN_NATIONAL_DIGITS_FOR_VALIDATION = 3; // Minimum digits before showing errors
 
     // If national number is empty or too short, consider valid for now (no error shown)
@@ -91,14 +98,16 @@ const PhoneInputWithFlag: React.FC<PhoneInputWithFlagProps> = ({
       }
   };
 
-  const dynamicPlaceholder = formatPhoneNumberIntl(`+${countryCallingCode}##########`)
+  const dynamicPlaceholder = prefix ? (
+    formatPhoneNumberIntl(`+${countryCallingCode}##########`)
       ?.replace(prefix, '')
-      .trim() || rawPlaceholder;
+      .trim() || rawPlaceholder
+  ) : rawPlaceholder;
 
   return (
     <div className={`phone-input-wrapper ${className}`}>
       <div className={`flex items-center bg-gray-100 rounded-lg p-2 border ${isValid ? 'border-transparent' : 'border-red-500'} ${disabled ? 'opacity-50' : ''}`}>
-        <span className="px-2 text-gray-600 flex-shrink-0">{prefix}</span>
+        <span className="px-2 text-gray-600 flex-shrink-0">{prefix || 'Select country →'}</span>
 
         <input
           type="tel"
