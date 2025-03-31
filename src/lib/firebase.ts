@@ -1,6 +1,7 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { ensureUserDocument } from './user-db';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -25,6 +26,14 @@ const actionCodeSettings = {
   // This must be true.
   handleCodeInApp: true,
 };
+
+// Set up auth state observer to create user documents
+auth.onAuthStateChanged(async (user) => {
+  if (user) {
+    // Create/update user document in Firestore
+    await ensureUserDocument(user);
+  }
+});
 
 export { 
   app, 

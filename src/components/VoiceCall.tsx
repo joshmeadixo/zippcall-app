@@ -1,4 +1,4 @@
-import React, { useState, FormEvent, useEffect } from 'react';
+import React, { useState, FormEvent, useEffect, useRef, forwardRef, useImperativeHandle, ForwardRefRenderFunction } from 'react';
 import { useTwilioDevice } from '@/hooks/useTwilioDevice';
 import { PhoneIcon, PhoneXMarkIcon, XCircleIcon } from '@heroicons/react/24/solid';
 import { PhoneArrowUpRightIcon, ClockIcon, GlobeAmericasIcon } from '@heroicons/react/24/outline';
@@ -9,22 +9,39 @@ import AudioVisualizer from './AudioVisualizer';
 import CallHistory, { CallHistoryEntry } from './CallHistory';
 import PhoneInputWithFlag from './phone/PhoneInput';
 import PhoneInputCountry from './phone/PhoneInputCountry';
-import { validatePhoneNumber } from '@/utils/phoneValidation';
+import { validatePhoneNumber, detectCountryFromE164, extractNationalNumber } from '@/utils/phoneValidation';
 import { Country, getCountryCallingCode } from 'react-phone-number-input';
+import CallPricing from './CallPricing';
+import { saveCallHistory } from '@/lib/call-history-db';
 
 interface VoiceCallProps {
-  userId: string;
   title?: string;
+  userId?: string;
   hideHistory?: boolean;
   onHistoryUpdate?: (history: CallHistoryEntry[]) => void;
 }
 
-export default function VoiceCall({ 
-  userId, 
-  title = "ZippCall", 
-  hideHistory = false,
-  onHistoryUpdate 
-}: VoiceCallProps) {
+// Define the handle type for the forwarded ref
+export interface VoiceCallHandle {
+  callNumber: (phoneNumber: string) => Promise<void>;
+}
+
+// Define interface for pricing information
+interface PricingInfo {
+  finalPrice?: number;
+  currentCost?: number;
+}
+
+// Convert to ForwardRefRenderFunction
+const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
+  { 
+    title = "Phone", 
+    userId = "", 
+    hideHistory = false, 
+    onHistoryUpdate 
+  }, 
+  ref
+) => {
   const [nationalPhoneNumber, setNationalPhoneNumber] = useState('');
   const [isIncomingCall, setIsIncomingCall] = useState(false);
   const [callStartTime, setCallStartTime] = useState<number | null>(null);
@@ -38,13 +55,15 @@ export default function VoiceCall({
   const [initializationStartTime] = useState<number>(Date.now());
   const [showRefreshButton, setShowRefreshButton] = useState<boolean>(false);
   const [isReinitializing, setIsReinitializing] = useState<boolean>(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [error, setError] = useState<string | null>(null);
+  const pricingRef = useRef<PricingInfo>({});
 
   const {
     isReady,
     isConnecting,
     isConnected,
     isAccepted,
-    error,
     waitingForMicPermission,
     makeCall,
     hangupCall,
@@ -63,53 +82,79 @@ export default function VoiceCall({
     }
   }, [call, isConnected, isConnecting]);
 
-  // Update call start time and handle call end
+  // Monitor connection state changes to detect call start/end
   useEffect(() => {
-    // Set call start time for connected calls
-    if (isConnected && isAccepted) {
-      // Only set if not already set
-      if (!callStartTime) {
-        const now = Date.now();
-        console.log('[VoiceCall] Setting call start time:', now);
-        setCallStartTime(now);
-      }
+    // Detect call start
+    if (isConnected && !callStartTime) {
+      console.log('[VoiceCall] Call connected, recording start time');
+      setCallStartTime(Date.now());
     } 
     // Handle call ending
     else if (!isConnected && !isConnecting && callStartTime) {
-      console.log('[VoiceCall] Call ended, creating call history entry');
-      // Call ended, save to history
-      const newCall: CallHistoryEntry = {
-        id: Date.now().toString(),
-        phoneNumber: validatedE164Number || 
-          (selectedCountry ? `+${getCountryCallingCode(selectedCountry)}${nationalPhoneNumber}` : nationalPhoneNumber) || 
-          'Unknown', 
-        timestamp: callStartTime,
-        duration: Math.floor((Date.now() - callStartTime) / 1000),
-        direction: isIncomingCall ? 'incoming' : 'outgoing',
-        status: 'answered' 
+      // Create an async function inside the effect
+      const handleCallEnd = async () => {
+        console.log('[VoiceCall] Call ended, creating call history entry');
+        
+        // Calculate final cost if possible
+        const duration = Math.floor((Date.now() - callStartTime) / 1000);
+        let finalCost = null;
+        
+        // Use the latest cost from the pricing component if available
+        if (pricingRef.current) {
+          finalCost = pricingRef.current.currentCost;
+          console.log(`[VoiceCall] Final call cost: ${finalCost}`);
+        }
+
+        // Call ended, save to history
+        const newCall: CallHistoryEntry = {
+          id: Date.now().toString(),
+          phoneNumber: validatedE164Number || 
+            (selectedCountry ? `+${getCountryCallingCode(selectedCountry)}${nationalPhoneNumber}` : nationalPhoneNumber) || 
+            'Unknown', 
+          timestamp: callStartTime,
+          duration: duration,
+          direction: isIncomingCall ? 'incoming' : 'outgoing',
+          status: 'answered',
+          cost: finalCost || undefined
+        };
+        
+        // Update local call history
+        const updatedHistory = [newCall, ...callHistory].slice(0, 50);
+        setCallHistory(updatedHistory);
+        
+        // Save call to Firestore
+        try {
+          if (userId) {
+            console.log(`[VoiceCall] Saving call history to Firestore for user ${userId}`);
+            await saveCallHistory(userId, newCall);
+          } else {
+            console.warn('[VoiceCall] Cannot save call history to Firestore: missing userId');
+          }
+        } catch (error) {
+          console.error('[VoiceCall] Error saving call history to Firestore:', error);
+        }
+        
+        // Notify parent if callback provided
+        if (onHistoryUpdate) {
+          onHistoryUpdate(updatedHistory);
+        }
+
+        // Reset all call-related state at once
+        setCallStartTime(null);
+        setCountrySelected(false);
+        setSelectedCountry(undefined);
+        setNationalPhoneNumber('');
+        setIsPhoneNumberValid(false);
+        setValidatedE164Number('');
+        
+        // Reset incoming call flag if needed
+        if (isIncomingCall) {
+          setIsIncomingCall(false);
+        }
       };
       
-      // Update call history
-      const updatedHistory = [newCall, ...callHistory].slice(0, 50);
-      setCallHistory(updatedHistory);
-      
-      // Notify parent if callback provided
-      if (onHistoryUpdate) {
-        onHistoryUpdate(updatedHistory);
-      }
-
-      // Reset all call-related state at once
-      setCallStartTime(null);
-      setCountrySelected(false);
-      setSelectedCountry(undefined);
-      setNationalPhoneNumber('');
-      setIsPhoneNumberValid(false);
-      setValidatedE164Number('');
-      
-      // Reset incoming call flag if needed
-      if (isIncomingCall) {
-        setIsIncomingCall(false);
-      }
+      // Call the async function
+      handleCallEnd();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAccepted, isConnected, isConnecting, callStartTime]);
@@ -164,13 +209,10 @@ export default function VoiceCall({
       return;
     }
     
-    // console.log(`[handleCallSubmit] Attempting call with Country: ${selectedCountry}, NationalNumber: ${nationalPhoneNumber}`);
     const fullNumberToCall = `+${getCountryCallingCode(selectedCountry)}${nationalPhoneNumber}`;
-    // console.log(`[handleCallSubmit] Constructed full number: ${fullNumberToCall}`);
     
     // Re-validate just before calling
     const validation = validatePhoneNumber(fullNumberToCall, selectedCountry);
-    // console.log(`[handleCallSubmit] Validation Result:`, validation);
     
     if (!validation.isValid || !validation.e164Number) {
         console.error('[handleCallSubmit] Invalid phone number for submission:', fullNumberToCall);
@@ -179,7 +221,6 @@ export default function VoiceCall({
     }
     
     // If validation passed, use the validated E.164 number
-    // console.log(`[handleCallSubmit] Validation passed. Calling startCall with E.164: ${validation.e164Number}`);
     await startCall(validation.e164Number);
   };
 
@@ -214,9 +255,91 @@ export default function VoiceCall({
 
   const handleHistoryCallClick = (number: string) => {
     if (!isConnected && !isConnecting) {
-      setNationalPhoneNumber(number);
-      startCall(number);
-      setShowHistory(false);
+      console.log(`[handleHistoryCallClick] Call history number clicked: ${number}`);
+      
+      // Check if the number is in E.164 format (starts with +)
+      if (number.startsWith('+')) {
+        // Detect the country from the phone number
+        const detectedCountry = detectCountryFromE164(number);
+        
+        if (detectedCountry) {
+          // We detected a country, now we need to extract the national number
+          const detectedNationalNumber = extractNationalNumber(number);
+          
+          if (detectedNationalNumber) {
+            console.log(`[handleHistoryCallClick] Detected country: ${detectedCountry}, national number: ${detectedNationalNumber}`);
+            
+            // Update country and phone number with a small delay between state updates
+            setCountrySelected(true);
+            setSelectedCountry(detectedCountry as Country);
+            
+            // Use setTimeout to ensure the country selection is processed first
+            setTimeout(() => {
+              // Now set the phone number
+              setNationalPhoneNumber(detectedNationalNumber);
+              
+              // Hide the history panel to show the phone UI
+              setShowHistory(false);
+              
+              // Validate the number
+              const fullNumber = `+${getCountryCallingCode(detectedCountry as Country)}${detectedNationalNumber}`;
+              const validation = validatePhoneNumber(fullNumber, detectedCountry);
+              
+              if (validation.isValid && validation.e164Number) {
+                setIsPhoneNumberValid(true);
+                setValidatedE164Number(validation.e164Number);
+                
+                // Don't start the call automatically
+                console.log('[handleHistoryCallClick] Phone number prepared for calling, awaiting user confirmation');
+              } else {
+                console.error(`[handleHistoryCallClick] Number validation failed: ${JSON.stringify(validation)}`);
+              }
+            }, 50); // Small delay of 50ms
+          } else {
+            console.error(`[handleHistoryCallClick] Could not extract national number from ${number}`);
+          }
+        } else {
+          console.error(`[handleHistoryCallClick] Could not detect country for ${number}`);
+        }
+      } else {
+        // Not E.164 format, just fill in the number field
+        setNationalPhoneNumber(number);
+        setShowHistory(false);
+      }
+    }
+  };
+
+  // Handle deleting a call history entry
+  const handleDeleteHistoryEntry = (callId: string) => {
+    console.log(`[handleDeleteHistoryEntry] Deleting call history entry: ${callId}`);
+    
+    // Update local call history by filtering out the deleted call
+    const updatedHistory = callHistory.filter(call => call.id !== callId);
+    setCallHistory(updatedHistory);
+    
+    // Notify parent component if callback provided
+    if (onHistoryUpdate) {
+      onHistoryUpdate(updatedHistory);
+    }
+    
+    // If userId is provided, also delete from Firestore
+    if (userId) {
+      // Import here to avoid circular dependency
+      import('@/lib/call-history-db').then(module => {
+        const { deleteCallHistoryEntry } = module;
+        
+        deleteCallHistoryEntry(callId, userId)
+          .then(success => {
+            if (success) {
+              console.log(`[handleDeleteHistoryEntry] Successfully deleted call from Firestore: ${callId}`);
+            } else {
+              console.error(`[handleDeleteHistoryEntry] Failed to delete call from Firestore: ${callId}`);
+            }
+          })
+          .catch(error => {
+            console.error('[handleDeleteHistoryEntry] Error deleting call from Firestore:', error);
+          });
+      });
     }
   };
 
@@ -234,6 +357,70 @@ export default function VoiceCall({
       setIsReinitializing(false);
     }, 3000);
   };
+
+  // Add function to capture pricing info from the CallPricing component
+  const handlePricingInfo = (price: number, cost: number) => {
+    // Store current pricing info in ref for access when call ends
+    pricingRef.current = { finalPrice: price, currentCost: cost };
+  };
+
+  // Expose callNumber method via ref
+  useImperativeHandle(ref, () => ({
+    callNumber: async (phoneNumber: string) => {
+      if (isConnected || isConnecting) {
+        console.error('[callNumber] Cannot prepare a new call while a call is in progress');
+        return;
+      }
+
+      console.log(`[callNumber] Received request to prepare call for: ${phoneNumber}`);
+      
+      // Check if the number is in E.164 format (starts with +)
+      if (phoneNumber.startsWith('+')) {
+        // Detect the country from the phone number
+        const detectedCountry = detectCountryFromE164(phoneNumber);
+        
+        if (detectedCountry) {
+          // We detected a country, now we need to extract the national number
+          const detectedNationalNumber = extractNationalNumber(phoneNumber);
+          
+          if (detectedNationalNumber) {
+            console.log(`[callNumber] Detected country: ${detectedCountry}, national number: ${detectedNationalNumber}`);
+            
+            // Update country and phone number with a small delay between state updates
+            setCountrySelected(true);
+            setSelectedCountry(detectedCountry as Country);
+            
+            // Use setTimeout to ensure the country selection is processed first
+            setTimeout(() => {
+              // Now set the phone number
+              setNationalPhoneNumber(detectedNationalNumber);
+              
+              // Validate the number
+              const fullNumber = `+${getCountryCallingCode(detectedCountry as Country)}${detectedNationalNumber}`;
+              const validation = validatePhoneNumber(fullNumber, detectedCountry);
+              
+              if (validation.isValid && validation.e164Number) {
+                setIsPhoneNumberValid(true);
+                setValidatedE164Number(validation.e164Number);
+                
+                // Don't start the call automatically, just set up the UI
+                console.log('[callNumber] Phone number prepared for calling, awaiting user confirmation');
+              } else {
+                console.error(`[callNumber] Number validation failed: ${JSON.stringify(validation)}`);
+              }
+            }, 50); // Small delay of 50ms
+          } else {
+            console.error(`[callNumber] Could not extract national number from ${phoneNumber}`);
+          }
+        } else {
+          console.error(`[callNumber] Could not detect country for ${phoneNumber}`);
+        }
+      } else {
+        // Not in E.164 format
+        console.error(`[callNumber] Phone number must be in E.164 format (start with +): ${phoneNumber}`);
+      }
+    }
+  }));
 
   return (
     <div className="bg-white shadow-lg rounded-lg max-w-md mx-auto overflow-hidden">
@@ -306,6 +493,7 @@ export default function VoiceCall({
               <CallHistory 
                 calls={callHistory} 
                 onCallClick={handleHistoryCallClick}
+                onDeleteClick={handleDeleteHistoryEntry}
               />
             ) : isConnected || isConnecting ? (
               // Active call view - **MODIFIED TO SHOW E.164 NUMBER**
@@ -313,10 +501,10 @@ export default function VoiceCall({
                 <div className="text-center mb-4">
                   <h3 className="text-xl font-bold">
                     {/* Display the validated E.164 number */} 
-                    {validatedE164Number || 'Connecting...'} 
+                    {validatedE164Number || 'Unknown Number'} 
                   </h3>
                   <p className="text-sm text-gray-500">
-                    {isConnecting ? 'Connecting...' : isAccepted ? 'In Progress' : 'Ringing...'}
+                    {isConnecting && !isConnected ? 'Connecting...' : isConnected && isAccepted ? 'In Progress' : 'Ringing...'}
                   </p>
                   
                   <div className="mt-2">
@@ -328,6 +516,18 @@ export default function VoiceCall({
                 </div>
                 
                 <AudioVisualizer isActive={isConnected} />
+                
+                {/* Add pricing component to active call view */}
+                {isConnected && isAccepted && (
+                  <div className="mt-4 mb-3">
+                    <CallPricing 
+                      phoneNumber={validatedE164Number}
+                      isCallActive={isConnected}
+                      callStartTime={callStartTime}
+                      onPricingUpdate={handlePricingInfo}
+                    />
+                  </div>
+                )}
                 
                 <div className="mt-8">
                   <CallControls 
@@ -411,9 +611,10 @@ export default function VoiceCall({
                   <div className="mt-1 relative z-10 phone-selector-container" style={{ overflow: 'visible' }}>
                     <div className="max-w-xs mx-auto">
                       <PhoneInputCountry
-                        value=""
+                        value={selectedCountry ? `+${getCountryCallingCode(selectedCountry)}` : ""}
                         onChange={() => {}}
                         onCountryChange={handleCountryChange}
+                        defaultCountry={selectedCountry}
                         className="country-selector-only"
                       />
                     </div>
@@ -453,6 +654,18 @@ export default function VoiceCall({
                     onBackspace={handleBackspace}
                   />
                 </div>
+                
+                {countrySelected && (
+                  <div className="mt-4 mb-3">
+                    <CallPricing 
+                      phoneNumber={validatedE164Number}
+                      isCallActive={isConnected}
+                      callStartTime={callStartTime}
+                      showPlaceholder={!isPhoneNumberValid || !nationalPhoneNumber}
+                      onPricingUpdate={handlePricingInfo}
+                    />
+                  </div>
+                )}
                 
                 <div className="mt-6 flex justify-center">
                   <button
@@ -544,4 +757,6 @@ export default function VoiceCall({
       </div>
     </div>
   );
-} 
+};
+
+export default forwardRef(VoiceCall); 

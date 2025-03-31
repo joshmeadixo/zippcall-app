@@ -1,5 +1,5 @@
 import React from 'react';
-import { PhoneIcon, ArrowUpRightIcon, ArrowDownLeftIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { PhoneIcon, ArrowUpRightIcon, ArrowDownLeftIcon, ClockIcon, CurrencyDollarIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 export interface CallHistoryEntry {
   id: string;
@@ -8,14 +8,16 @@ export interface CallHistoryEntry {
   duration: number; // in seconds
   direction: 'incoming' | 'outgoing';
   status: 'answered' | 'missed' | 'rejected';
+  cost?: number; // call cost in USD
 }
 
 interface CallHistoryProps {
   calls: CallHistoryEntry[];
   onCallClick: (phoneNumber: string) => void;
+  onDeleteClick?: (callId: string) => void;
 }
 
-const CallHistory: React.FC<CallHistoryProps> = ({ calls, onCallClick }) => {
+const CallHistory: React.FC<CallHistoryProps> = ({ calls, onCallClick, onDeleteClick }) => {
   // Format timestamp to readable date/time
   const formatTimestamp = (timestamp: number): string => {
     const date = new Date(timestamp);
@@ -54,6 +56,20 @@ const CallHistory: React.FC<CallHistoryProps> = ({ calls, onCallClick }) => {
     
     return `${hours}h ${remainingMinutes}m`;
   };
+  
+  // Handle call button click
+  const handleCallClick = (e: React.MouseEvent, phoneNumber: string) => {
+    e.stopPropagation();
+    onCallClick(phoneNumber);
+  };
+  
+  // Handle delete button click
+  const handleDeleteClick = (e: React.MouseEvent, callId: string) => {
+    e.stopPropagation();
+    if (onDeleteClick) {
+      onDeleteClick(callId);
+    }
+  };
 
   if (!calls.length) {
     return (
@@ -70,8 +86,7 @@ const CallHistory: React.FC<CallHistoryProps> = ({ calls, onCallClick }) => {
         {calls.map((call) => (
           <li 
             key={call.id}
-            className="p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
-            onClick={() => onCallClick(call.phoneNumber)}
+            className="p-3 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <div className="flex items-center">
               <div className={`p-2 rounded-full mr-3 
@@ -111,12 +126,43 @@ const CallHistory: React.FC<CallHistoryProps> = ({ calls, onCallClick }) => {
                   </p>
                   
                   {call.status === 'answered' && (
-                    <p className="text-xs text-gray-500">
-                      {formatDuration(call.duration)}
-                    </p>
+                    <div className="flex items-center space-x-3">
+                      <p className="text-xs text-gray-500">
+                        {formatDuration(call.duration)}
+                      </p>
+                      {call.cost !== undefined && (
+                        <p className="text-xs text-gray-600 flex items-center">
+                          <CurrencyDollarIcon className="h-3 w-3 mr-1" />
+                          ${call.cost.toFixed(4)}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
+            </div>
+            
+            {/* Action buttons */}
+            <div className="flex justify-end mt-2 space-x-2">
+              <button
+                onClick={(e) => handleCallClick(e, call.phoneNumber)}
+                className="p-1.5 bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200 transition-colors flex items-center text-xs"
+                title="Call this number"
+              >
+                <PhoneIcon className="h-3.5 w-3.5 mr-1" />
+                <span>Call</span>
+              </button>
+              
+              {onDeleteClick && (
+                <button
+                  onClick={(e) => handleDeleteClick(e, call.id)}
+                  className="p-1.5 bg-red-100 text-red-600 rounded-md hover:bg-red-200 transition-colors flex items-center text-xs"
+                  title="Delete this call record"
+                >
+                  <TrashIcon className="h-3.5 w-3.5 mr-1" />
+                  <span>Delete</span>
+                </button>
+              )}
             </div>
           </li>
         ))}
