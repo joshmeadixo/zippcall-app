@@ -44,33 +44,24 @@ TWILIO_TWIML_APP_SID=your-twiml-app-sid
 TWILIO_CALLER_ID=your-twilio-phone-number
 ```
 
-### Local Testing with ngrok
-
-To test the Twilio integration locally, you need to expose your local development server to the internet. This project includes ngrok integration for easy local testing:
-
-1. Start your Next.js development server:
-   ```bash
-   npm run dev
-   ```
-
-2. In a separate terminal, start the ngrok tunnel:
-   ```bash
-   npm run ngrok
-   ```
-
-3. The script will output a public HTTPS URL that looks like `https://xxxx-xxxx-xxxx.ngrok.io`
-
-4. Use this URL in your Twilio TwiML App configuration:
-   - Voice Request URL: `https://xxxx-xxxx-xxxx.ngrok.io/api/voice`
-
-5. The ngrok URL will change each time you restart the tunnel, so you'll need to update your TwiML App configuration each time.
-
 ## Features
 
 - Firebase authentication
 - Twilio Voice SDK integration
 - Make and receive voice calls directly from the browser
 - Responsive UI
+
+## Documentation
+
+Detailed setup and configuration guides are available in the `docs` directory:
+
+- [Admin Access Setup](docs/ADMIN_ACCESS.md) - How to set up admin privileges
+- [Firebase Setup](docs/FIREBASE_SETUP.md) - Firebase configuration and security rules
+- [Twilio Configuration](docs/TWILIO_CONFIGURATION.md) - Detailed Twilio setup instructions
+- [Environment Setup](docs/SETUP_ENV.md) - Environment variables configuration
+- [Number Pool Management](docs/NUMBER_POOL.md) - Managing Twilio phone numbers
+- [Pricing System](docs/PRICING_SYSTEM.md) - Understanding the call pricing system
+- [Pricing Guide](docs/PRICING_GUIDE.md) - How to configure call pricing
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 

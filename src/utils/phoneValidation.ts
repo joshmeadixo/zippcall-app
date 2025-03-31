@@ -122,4 +122,65 @@ export function getValidationErrorMessage(result: ValidationResult): string {
     default:
       return 'Invalid phone number';
   }
+}
+
+/**
+ * Detects the country from an E.164 formatted phone number
+ * @param e164Number The phone number in E.164 format (must start with +)
+ * @returns The two-letter country code, or undefined if detection failed
+ */
+export function detectCountryFromE164(e164Number: string): string | undefined {
+  if (!e164Number || !e164Number.startsWith('+')) {
+    console.error('[detectCountryFromE164] Input must be in E.164 format starting with +');
+    return undefined;
+  }
+
+  try {
+    const parsedNumber = phoneUtil.parse(e164Number);
+    const regionCode = phoneUtil.getRegionCodeForNumber(parsedNumber);
+    
+    if (!regionCode) {
+      console.error('[detectCountryFromE164] Could not detect region for number:', e164Number);
+      return undefined;
+    }
+    
+    // Validate that the number is valid for the detected region
+    if (!phoneUtil.isValidNumberForRegion(parsedNumber, regionCode)) {
+      console.warn('[detectCountryFromE164] Number is not valid for the detected region:', regionCode);
+    }
+    
+    console.log(`[detectCountryFromE164] Detected country ${regionCode} for number ${e164Number}`);
+    return regionCode;
+  } catch (error) {
+    console.error('[detectCountryFromE164] Error parsing phone number:', error);
+    return undefined;
+  }
+}
+
+/**
+ * Extracts the national number portion from an E.164 formatted phone number
+ * @param e164Number The phone number in E.164 format (must start with +)
+ * @returns The national number without country code, or undefined if extraction failed
+ */
+export function extractNationalNumber(e164Number: string): string | undefined {
+  if (!e164Number || !e164Number.startsWith('+')) {
+    console.error('[extractNationalNumber] Input must be in E.164 format starting with +');
+    return undefined;
+  }
+
+  try {
+    const parsedNumber = phoneUtil.parse(e164Number);
+    const nationalNumber = parsedNumber.getNationalNumber()?.toString();
+    
+    if (!nationalNumber) {
+      console.error('[extractNationalNumber] Could not extract national number from:', e164Number);
+      return undefined;
+    }
+    
+    console.log(`[extractNationalNumber] Extracted national number ${nationalNumber} from ${e164Number}`);
+    return nationalNumber;
+  } catch (error) {
+    console.error('[extractNationalNumber] Error parsing phone number:', error);
+    return undefined;
+  }
 } 

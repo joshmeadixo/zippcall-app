@@ -1,0 +1,62 @@
+// Copy these rules to your Firebase Console > Firestore Database > Rules tab
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Basic rules for all users - they can read their own data
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Allow any authenticated user to read pricing data, but only admin users can write
+    match /pricing/{docId} {
+      // Anyone can read pricing information
+      allow read: if true;
+      
+      // Only users with admin: true in their profile can write to pricing
+      allow write: if request.auth != null && 
+                     (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.admin == true);
+    }
+    
+    // Allow reading price update history
+    match /priceUpdates/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null && 
+                     (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.admin == true);
+    }
+    
+    // Allow admin users to read and write markup configuration
+    match /markup/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null && 
+                     (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.admin == true);
+    }
+    
+    // Allow users to read, create, and update their own call history
+    match /callHistory/{callId} {
+      allow read: if request.auth != null && 
+                    request.auth.uid == resource.data.userId;
+      
+      // Allow creating new call history entries with the user's own UID
+      allow create: if request.auth != null && 
+                      request.auth.uid == request.resource.data.userId;
+      
+      // Allow users to update (soft delete) their own call history
+      allow update: if request.auth != null && 
+                      request.auth.uid == resource.data.userId &&
+                      request.resource.data.userId == resource.data.userId;
+      
+      // Don't allow hard deletes of call history records
+      allow delete: if false;
+    }
+    
+    // Default rule - deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+} 

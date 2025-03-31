@@ -16,6 +16,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { ensureUserDocument } from '@/lib/user-db';
 
 export default function Home() {
   const [email, setEmail] = useState('');
@@ -51,13 +52,22 @@ export default function Home() {
         // Complete the sign-in process
         if (email) {
           signInWithEmailLink(auth, email, window.location.href)
-            .then(() => {
+            .then((result) => {
               // Clear the email from storage
               localStorage.removeItem('emailForSignIn');
               // Clear the URL to prevent automatic sign-in attempts if the page is refreshed
               window.history.replaceState(null, "", window.location.pathname);
-              // Redirect to dashboard
-              router.push('/dashboard');
+              
+              // Ensure user document exists in Firestore
+              return ensureUserDocument(result.user)
+                .then(() => {
+                  // Redirect to dashboard
+                  router.push('/dashboard');
+                })
+                .catch((dbError) => {
+                  console.error('Error creating user document:', dbError);
+                  setError('Error setting up user profile. Please ensure Firestore is properly configured.');
+                });
             })
             .catch((error) => {
               setError(error.message || 'An error occurred during sign-in.');
@@ -100,7 +110,18 @@ export default function Home() {
     setIsLoading(true);
     
     try {
-      await signInWithPopup(auth, googleProvider);
+      // Sign in with Google
+      const result = await signInWithPopup(auth, googleProvider);
+      
+      // Ensure user document exists in Firestore
+      try {
+        await ensureUserDocument(result.user);
+      } catch (dbError) {
+        console.error('Error creating user document:', dbError);
+        setError('Error setting up user profile. Please ensure Firestore is properly configured.');
+        return;
+      }
+      
       router.push('/dashboard');
     } catch (err) {
       const firebaseError = err as AuthError;
