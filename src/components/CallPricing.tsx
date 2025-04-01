@@ -7,17 +7,22 @@ interface CallPricingProps {
   isCallActive: boolean;
   callStartTime?: number | null;
   callDuration?: number;
-  showPlaceholder?: boolean;
   onPricingUpdate?: (price: number, cost: number) => void;
+  userBalance: number | null;
+  isLoadingBalance: boolean;
 }
+
+// Define minimum balance threshold here as well (or import from a shared config)
+const MIN_BALANCE_THRESHOLD = 0.15;
 
 export default function CallPricing({
   phoneNumber,
   isCallActive,
   callStartTime,
   callDuration,
-  showPlaceholder = false,
-  onPricingUpdate
+  onPricingUpdate,
+  userBalance,
+  isLoadingBalance,
 }: CallPricingProps) {
   const [pricing, setPricing] = useState<PhoneNumberPriceResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -107,6 +112,28 @@ export default function CallPricing({
     return () => clearInterval(intervalId);
   }, [isCallActive, pricing, callStartTime, callDuration, onPricingUpdate]);
   
+  // --- Helper to render Rate Info --- 
+  const renderRateInfo = () => {
+    if (!pricing) return null;
+    return (
+      <div className="text-sm text-gray-600">
+        Rate: <span className="font-semibold">{formatPrice(pricing.finalPrice)}</span> / min
+        {pricing.billingIncrement !== 60 && 
+          <span className="text-xs text-gray-500 ml-1">(billed per {pricing.billingIncrement}s)</span>}
+      </div>
+    );
+  };
+  
+  // --- Re-add formatDuration helper function ---
+  const formatDuration = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+  
+  // --- RENDER LOGIC --- 
+  
+  // 1. Handle Loading Pricing State
   if (isLoading) {
     return (
       <div className="text-center py-2 text-sm text-gray-500">
@@ -117,6 +144,7 @@ export default function CallPricing({
     );
   }
   
+  // 2. Handle Pricing Error State
   if (error) {
     return (
       <div className="text-center py-2 text-sm text-red-500">
@@ -124,66 +152,64 @@ export default function CallPricing({
       </div>
     );
   }
-  
-  // Show placeholder if no pricing data is available but placeholder is enabled
-  if (!pricing) {
-    if (showPlaceholder) {
+
+  // 3. Handle No Pricing Info State (If API succeeded but returned no data)
+  if (!isLoading && !error && !pricing) {
+    return (
+      <div className="text-center py-2 text-sm text-gray-500">
+        Pricing information unavailable for this number.
+      </div>
+    );
+  }
+
+  // --- At this point, we assume we have pricing info (`pricing` is not null) --- 
+
+  // 4. Handle Loading Balance State
+  if (isLoadingBalance) {
       return (
-        <div className="call-pricing bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm">
-          <div className="text-center py-1 text-blue-700">
-            Enter a phone number to see pricing
+        <div className="text-center py-2 text-sm text-gray-500">
+          <div className="inline-block animate-pulse">
+            Checking balance...
           </div>
+          {/* Optionally show rate dimmed while checking balance? */} 
+          {/* <div className="opacity-50 mt-1">{renderRateInfo()}</div> */}
         </div>
       );
-    }
-    return null;
+  }
+
+  // --- At this point, pricing and balance are loaded --- 
+  
+  // 5. Handle Low Balance State 
+  if (userBalance !== null && userBalance <= MIN_BALANCE_THRESHOLD) {
+    return (
+      <div className="text-center py-2 px-3 text-sm bg-orange-100 text-orange-700 rounded-md">
+        <p className="font-medium">Low balance! Please add funds to make a call.</p>
+        {/* Show rate info below the warning */}
+        <div className="mt-1 border-t border-orange-200 pt-1"> 
+          {renderRateInfo()}
+        </div>
+      </div>
+    );
   }
   
-  // Format duration for display (MM:SS)
-  const formatDuration = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
-  
+  // 6. Display Pricing/Cost (Default Success State - balance is sufficient)
   return (
-    <div className="call-pricing bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm">
-      <div className="flex justify-between items-center">
-        <span className="font-medium text-blue-800">
-          Rate:
-        </span>
-        <span className="text-blue-700">
-          {formatPrice(pricing.finalPrice)} / min
-        </span>
-      </div>
-      
-      {isCallActive && (
-        <>
-          <div className="border-t border-blue-100 my-2"></div>
-          
-          <div className="flex justify-between items-center">
-            <span className="font-medium text-blue-800">
-              Duration:
-            </span>
-            <span className="text-blue-700 tabular-nums">
-              {formatDuration(durationSeconds)}
-            </span>
-          </div>
-          
-          <div className="flex justify-between items-center mt-1">
-            <span className="font-medium text-blue-800">
-              Current Cost:
-            </span>
-            <span className="text-blue-700 font-bold tabular-nums">
-              {formatPrice(currentCost)}
-            </span>
-          </div>
-        </>
+    <div className="text-center py-2 text-sm text-gray-600 bg-gray-50 rounded-md">
+      {isCallActive ? (
+        // Check for pricing before accessing properties
+        pricing ? (
+          <span>
+            Cost: <span className="font-semibold">{formatPrice(currentCost)}</span> 
+            ({formatPrice(pricing.finalPrice)}/min, {formatDuration(durationSeconds)})
+          </span>
+        ) : (
+          // Fallback if pricing is unexpectedly null during active call
+          <span>Calculating cost...</span>
+        )
+      ) : (
+        // Show rate when idle (and balance is sufficient)
+        renderRateInfo()
       )}
-      
-      <div className="mt-2 text-xs text-blue-600">
-        Calls are billed per {pricing.billingIncrement / 60} minute increments
-      </div>
     </div>
   );
 } 

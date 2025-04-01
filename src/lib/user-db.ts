@@ -26,6 +26,7 @@ export async function ensureUserDocument(user: User): Promise<void> {
       lastLogin: new Date(),
       isAdmin: false, // Default to non-admin
       phoneNumber: user.phoneNumber || '',
+      balance: 0, // Initialize balance to 0
     });
     console.log(`Created new user document for ${user.email}`);
   } else {

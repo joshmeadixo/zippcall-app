@@ -1,4 +1,5 @@
 import React, { useState, FormEvent, useEffect, useRef, forwardRef, useImperativeHandle, ForwardRefRenderFunction } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { useTwilioDevice } from '@/hooks/useTwilioDevice';
 import { PhoneIcon, PhoneXMarkIcon, XCircleIcon } from '@heroicons/react/24/solid';
 import { PhoneArrowUpRightIcon, ClockIcon, GlobeAmericasIcon } from '@heroicons/react/24/outline';
@@ -13,6 +14,9 @@ import { validatePhoneNumber, detectCountryFromE164, extractNationalNumber } fro
 import { Country, getCountryCallingCode } from 'react-phone-number-input';
 import CallPricing from './CallPricing';
 import { saveCallHistory } from '@/lib/call-history-db';
+import { getAuth } from 'firebase/auth';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface VoiceCallProps {
   title?: string;
@@ -32,6 +36,9 @@ interface PricingInfo {
   currentCost?: number;
 }
 
+// Define minimum balance threshold
+const MIN_BALANCE_THRESHOLD = 0.15;
+
 // Convert to ForwardRefRenderFunction
 const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
   { 
@@ -42,12 +49,14 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
   }, 
   ref
 ) => {
+  const { user } = useAuth();
   const [nationalPhoneNumber, setNationalPhoneNumber] = useState('');
   const [isIncomingCall, setIsIncomingCall] = useState(false);
   const [callStartTime, setCallStartTime] = useState<number | null>(null);
   const [showDialpad, setShowDialpad] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [callHistory, setCallHistory] = useState<CallHistoryEntry[]>([]);
+  const [callRecordError, setCallRecordError] = useState<string | null>(null);
   const [isPhoneNumberValid, setIsPhoneNumberValid] = useState(false);
   const [validatedE164Number, setValidatedE164Number] = useState<string>('');
   const [countrySelected, setCountrySelected] = useState<boolean>(false);
@@ -58,6 +67,11 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [error, setError] = useState<string | null>(null);
   const pricingRef = useRef<PricingInfo>({});
+  const [userBalance, setUserBalance] = useState<number | null>(null);
+  const [isLoadingBalance, setIsLoadingBalance] = useState(true); // Start loading initially
+  const [balanceFetchError, setBalanceFetchError] = useState<string | null>(null);
+  // Add state to track the real-time cost of the current call
+  const [currentCallCost, setCurrentCallCost] = useState(0);
 
   const {
     isReady,
@@ -73,6 +87,56 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
     requestMicrophonePermission,
     reinitializeDevice
   } = useTwilioDevice({ userId });
+
+  // Fetch user balance from Firestore using a real-time listener
+  useEffect(() => {
+    if (!user || !user.uid) {
+      // If no user, set balance to null and stop loading
+      setUserBalance(null);
+      setIsLoadingBalance(false);
+      setBalanceFetchError(null); // Clear any previous error
+      return; // Exit effect
+    }
+
+    // Start loading when user is available
+    setIsLoadingBalance(true);
+    setBalanceFetchError(null);
+    console.log(`[VoiceCall] Setting up balance listener for user ${user.uid}`);
+    const userRef = doc(db, 'users', user.uid);
+
+    // Use onSnapshot for real-time updates
+    const unsubscribe = onSnapshot(userRef, 
+      (docSnap) => {
+        // Listener callback
+        if (docSnap.exists()) {
+          const userData = docSnap.data();
+          const balance = typeof userData.balance === 'number' ? userData.balance : 0;
+          setUserBalance(balance);
+          console.log(`[VoiceCall] Balance updated via listener: ${balance}`);
+          setBalanceFetchError(null); // Clear error on successful update
+        } else {
+          console.warn(`[VoiceCall] User document snapshot not found for UID: ${user.uid}. Setting balance to 0.`);
+          setUserBalance(0); 
+          setBalanceFetchError('User profile not found.');
+        }
+        setIsLoadingBalance(false); // Stop loading after first snapshot or update
+      },
+      (error) => {
+        // Error handler for the listener
+        console.error('[VoiceCall] Error listening to user balance:', error);
+        setUserBalance(0); // Default to 0 on listener error
+        setBalanceFetchError('Could not load balance.');
+        setIsLoadingBalance(false);
+      }
+    );
+
+    // Cleanup function: Unsubscribe the listener when the component unmounts or user changes
+    return () => {
+      console.log(`[VoiceCall] Unsubscribing balance listener for user ${user.uid}`);
+      unsubscribe();
+    };
+
+  }, [user]); // Re-run effect if user object changes
 
   // Check for incoming calls - we don't need to handle these anymore since we auto-reject
   useEffect(() => {
@@ -91,73 +155,107 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
     } 
     // Handle call ending
     else if (!isConnected && !isConnecting && callStartTime) {
-      // Create an async function inside the effect
       const handleCallEnd = async () => {
-        console.log('[VoiceCall] Call ended, creating call history entry');
+        // Clear any previous recording errors
+        setCallRecordError(null);
         
-        // Calculate final cost if possible
+        console.log('[VoiceCall] Call ended, preparing call record.');
+        
         const duration = Math.floor((Date.now() - callStartTime) / 1000);
-        let finalCost = null;
-        
-        // Use the latest cost from the pricing component if available
-        if (pricingRef.current) {
-          finalCost = pricingRef.current.currentCost;
-          console.log(`[VoiceCall] Final call cost: ${finalCost}`);
-        }
+        // Ensure cost is a non-negative number, default to 0 if unavailable
+        const finalCost = (pricingRef.current?.currentCost !== undefined && pricingRef.current.currentCost >= 0) 
+                          ? pricingRef.current.currentCost 
+                          : 0; 
 
-        // Call ended, save to history
+        console.log(`[VoiceCall] Final call cost determined: ${finalCost}`);
+
         const newCall: CallHistoryEntry = {
-          id: Date.now().toString(),
+          id: call?.parameters.CallSid || Date.now().toString(), // Use CallSid if available, fallback to timestamp
           phoneNumber: validatedE164Number || 
             (selectedCountry ? `+${getCountryCallingCode(selectedCountry)}${nationalPhoneNumber}` : nationalPhoneNumber) || 
             'Unknown', 
-          timestamp: callStartTime,
+          timestamp: callStartTime, // Keep as JS timestamp for sending to API
           duration: duration,
           direction: isIncomingCall ? 'incoming' : 'outgoing',
-          status: 'answered',
-          cost: finalCost || undefined
+          status: 'answered', // Assuming answered if it reached this point
+          cost: finalCost 
         };
-        
-        // Update local call history
-        const updatedHistory = [newCall, ...callHistory].slice(0, 50);
-        setCallHistory(updatedHistory);
-        
-        // Save call to Firestore
-        try {
-          if (userId) {
-            console.log(`[VoiceCall] Saving call history to Firestore for user ${userId}`);
-            await saveCallHistory(userId, newCall);
-          } else {
-            console.warn('[VoiceCall] Cannot save call history to Firestore: missing userId');
+
+        // Call the API to record the call and deduct cost
+        if (user && newCall.cost !== undefined) { // Ensure user is available and cost is defined
+          try {
+            console.log(`[VoiceCall] Attempting to record call ${newCall.id} via API for user ${user.uid}`);
+            const token = await user.getIdToken();
+            
+            const response = await fetch('/api/call-cost', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify(newCall),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+              // Throw an error with the message from the API
+              throw new Error(data.error || `API Error: ${response.status}`);
+            }
+
+            // --- Success Case --- 
+            if (data.success) {
+              console.log(`[VoiceCall] Successfully recorded call ${newCall.id}. New balance: ${data.newBalance}`);
+              // Update local call history STATE *only* on successful recording
+              const updatedHistory = [newCall, ...callHistory].slice(0, 50);
+              setCallHistory(updatedHistory);
+              
+              // Notify parent if callback provided
+              if (onHistoryUpdate) {
+                onHistoryUpdate(updatedHistory);
+              }
+              // TODO: Optionally update balance display directly if needed
+            } else {
+              // Should not happen if response.ok is true, but handle defensively
+              throw new Error(data.error || 'API returned success=false without error message.');
+            }
+
+          } catch (error: any) {
+            // --- Error Case --- 
+            console.error('[VoiceCall] Failed to record call via API:', error);
+            // Only show error message if it wasn't due to insufficient funds (which is handled by auto-hangup)
+            // The API shouldn't send this error anymore, but check defensively.
+            const errorMessage = error.message || 'An unexpected error occurred.';
+            if (!errorMessage.includes('Insufficient funds')) {
+              setCallRecordError(`Failed to record call: ${errorMessage}`);
+            }
+            // Do NOT update local call history state if API call fails
           }
-        } catch (error) {
-          console.error('[VoiceCall] Error saving call history to Firestore:', error);
-        }
-        
-        // Notify parent if callback provided
-        if (onHistoryUpdate) {
-          onHistoryUpdate(updatedHistory);
+        } else if (!user) {
+          console.warn('[VoiceCall] Cannot record call: User not authenticated.');
+          setCallRecordError('Authentication error. Cannot record call.');
+        } else {
+           console.warn(`[VoiceCall] Cannot record call ${newCall.id}: Cost is undefined.`);
+           // Don't set an error message here, as cost might be legitimately unavailable for some calls?
+           // Or potentially set specific error?
         }
 
-        // Reset all call-related state at once
+        // Reset call state regardless of API call success/failure
         setCallStartTime(null);
         setCountrySelected(false);
         setSelectedCountry(undefined);
         setNationalPhoneNumber('');
         setIsPhoneNumberValid(false);
         setValidatedE164Number('');
-        
-        // Reset incoming call flag if needed
         if (isIncomingCall) {
           setIsIncomingCall(false);
         }
       };
       
-      // Call the async function
       handleCallEnd();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAccepted, isConnected, isConnecting, callStartTime]);
+  }, [isAccepted, isConnected, isConnecting, callStartTime, user, validatedE164Number, selectedCountry, nationalPhoneNumber, isIncomingCall, callHistory, onHistoryUpdate, call]);
 
   // Check for initialization taking too long
   useEffect(() => {
@@ -200,38 +298,76 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
     setValidatedE164Number('');
   };
 
-  // Submit call
+  // Handle submitting the call
   const handleCallSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    
-    if (!selectedCountry) {
-      console.error('[handleCallSubmit] No country selected');
+
+    // --- PRE-CALL CHECKS --- 
+    // Check device readiness and connection status
+    if (!isReady || isConnecting || isConnected) {
+      console.warn('[handleCallSubmit] Call prevented: Device not ready or already connected/connecting.');
       return;
+    }
+    // Check if phone number is considered valid by the input component
+    if (!isPhoneNumberValid) {
+      console.warn('[handleCallSubmit] Call prevented: Phone number is not valid.');
+       // Optionally set an error state here if needed
+      return;
+    }
+    // Check if balance is still loading
+    if (isLoadingBalance) {
+      console.warn('[handleCallSubmit] Call prevented: Balance is still loading.');
+      // Show loading indicator or disable button (already handled by isCallButtonDisabled)
+      return;
+    }
+    // Check balance against threshold
+    if (userBalance === null || userBalance <= MIN_BALANCE_THRESHOLD) {
+      console.warn(`[handleCallSubmit] Call prevented due to low balance: ${userBalance}`);
+      // Error message is already displayed conditionally via lowBalanceMessage
+      return;
+    }
+    // --- END PRE-CALL CHECKS ---
+    
+    // Clear previous recording errors before starting call attempt
+    setCallRecordError(null);
+
+    console.log('[handleCallSubmit] Attempting to format and validate number before calling.');
+
+    if (!selectedCountry) {
+        console.error('[handleCallSubmit] No country selected.');
+        return; // Or set an error state
     }
     
     const fullNumberToCall = `+${getCountryCallingCode(selectedCountry)}${nationalPhoneNumber}`;
     
-    // Re-validate just before calling
+    // Re-validate just before calling (important!)
     const validation = validatePhoneNumber(fullNumberToCall, selectedCountry);
     
     if (!validation.isValid || !validation.e164Number) {
         console.error('[handleCallSubmit] Invalid phone number for submission:', fullNumberToCall);
-        setIsPhoneNumberValid(false); 
+        setIsPhoneNumberValid(false); // Update state if validation fails here
+        // Optionally set a user-facing error message
         return;
     }
     
-    // If validation passed, use the validated E.164 number
-    await startCall(validation.e164Number);
+    // If validation passed, use the validated E.164 number and start the call
+    console.log(`[handleCallSubmit] Validation passed. Starting call to: ${validation.e164Number}`);
+    // Hide dialpad/history when call starts
+    setShowDialpad(false); 
+    setShowHistory(false); 
+    await startCall(validation.e164Number); 
   };
 
-  // Start call function
+  // Start call function (This function actually calls the Twilio hook)
   const startCall = async (e164Number: string) => {
+    // No balance check needed here as it's done in handleCallSubmit
     console.log(`[startCall] Received E.164 number: ${e164Number}`);
     if (!isReady) {
         console.error('[startCall] Device not ready, cannot make call.');
-        return;
+        return; // Should have been caught by handleCallSubmit, but check again
     }
     console.log(`[startCall] Calling makeCall hook function with: ${e164Number}`);
+    setValidatedE164Number(e164Number); // Ensure validated number is stored for history
     await makeCall(e164Number);
   };
 
@@ -358,10 +494,39 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
     }, 3000);
   };
 
-  // Add function to capture pricing info from the CallPricing component
+  // Add useEffect for monitoring balance during active call
+  useEffect(() => {
+    // Only monitor if the call is connected and we have balance info
+    if (isConnected && userBalance !== null && currentCallCost > 0) {
+      if (currentCallCost >= userBalance) {
+        console.warn(`[VoiceCall Monitor] Insufficient balance detected (Cost: ${currentCallCost}, Balance: ${userBalance}). Hanging up call.`);
+        // Trigger the hangup process
+        handleHangup(); 
+      }
+    }
+    // Dependencies: Run when connection status, balance, or cost changes
+  }, [isConnected, userBalance, currentCallCost]);
+
+  // Update handlePricingInfo to store the current cost in state
   const handlePricingInfo = (price: number, cost: number) => {
-    // Store current pricing info in ref for access when call ends
+    // Store latest price/cost in ref for use in handleCallEnd
     pricingRef.current = { finalPrice: price, currentCost: cost };
+    // Update state for real-time monitoring
+    setCurrentCallCost(cost); 
+  };
+  
+  // Add handleHangup function if it doesn't exist, or ensure it calls hangupCall
+  const handleHangup = () => {
+    console.log("[VoiceCall] handleHangup called.");
+    // Use the hangupCall function returned by the useTwilioDevice hook
+    const hungUp = hangupCall(); 
+    if (!hungUp) {
+      console.warn("[VoiceCall] hangupCall hook function indicated hangup wasn't performed (maybe no active call?).");
+    }
+    // Resetting state like callStartTime etc., is now handled by the
+    // useEffect hook that listens for !isConnected change, which is triggered by hangupCall.
+    // We also need to reset the current call cost state here.
+    setCurrentCallCost(0);
   };
 
   // Expose callNumber method via ref
@@ -486,6 +651,20 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
           </div>
         )}
         
+        {/* Display Call Recording Error */}
+        {callRecordError && (
+          <div className="my-3 p-2 bg-red-100 text-red-700 text-sm rounded-md text-center">
+            {callRecordError}
+          </div>
+        )}
+        
+        {/* Display Balance Fetch Error */}
+        {balanceFetchError && (
+           <div className="my-2 p-2 bg-yellow-100 text-yellow-800 text-sm rounded-md text-center">
+              Balance Error: {balanceFetchError}
+           </div>
+        )}
+        
         {/* Call UI */}
         {(isReady || call || isConnecting || isConnected || isIncomingCall) && !error && (
           <>
@@ -525,15 +704,17 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
                       isCallActive={isConnected}
                       callStartTime={callStartTime}
                       onPricingUpdate={handlePricingInfo}
+                      userBalance={userBalance}
+                      isLoadingBalance={isLoadingBalance}
                     />
                   </div>
                 )}
                 
                 <div className="mt-8">
                   <CallControls 
-                    onHangup={hangupCall}
+                    onHangup={handleHangup}
                     onToggleMute={handleToggleMute}
-                    disabled={false} /* Always enable controls */
+                    disabled={!isConnected}
                   />
                   
                   {/* Dialpad toggle */}
@@ -655,35 +836,54 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
                   />
                 </div>
                 
-                {countrySelected && (
+                {countrySelected && 
+                 nationalPhoneNumber.trim() && 
+                 isPhoneNumberValid && 
+                 !!validatedE164Number && (
                   <div className="mt-4 mb-3">
                     <CallPricing 
                       phoneNumber={validatedE164Number}
-                      isCallActive={isConnected}
-                      callStartTime={callStartTime}
-                      showPlaceholder={!isPhoneNumberValid || !nationalPhoneNumber}
+                      isCallActive={false}
                       onPricingUpdate={handlePricingInfo}
+                      userBalance={userBalance}
+                      isLoadingBalance={isLoadingBalance}
                     />
                   </div>
                 )}
                 
-                <div className="mt-6 flex justify-center">
-                  <button
-                    onClick={handleCallSubmit}
-                    disabled={!isReady || !countrySelected || !nationalPhoneNumber.trim()}
-                    className={`rounded-full p-5 flex items-center justify-center 
-                      ${!isReady || !countrySelected || !nationalPhoneNumber.trim()
-                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                        : 'bg-green-500 text-white hover:bg-green-600'
-                      }`}
-                    aria-label="Make call"
-                    title={!countrySelected ? "Please select a country first" :
-                           !nationalPhoneNumber.trim() ? "Please enter a phone number" :
-                           !isPhoneNumberValid ? "Phone number may be invalid" : "Make call"}
-                  >
-                    <PhoneArrowUpRightIcon className="h-6 w-6" />
-                  </button>
-                </div>
+                {/* Call Button */}
+                <button
+                  onClick={handleCallSubmit} 
+                  disabled={
+                    !isReady || 
+                    isConnecting || 
+                    isConnected || 
+                    !selectedCountry || 
+                    !nationalPhoneNumber.trim() || 
+                    !isPhoneNumberValid ||
+                    isLoadingBalance ||
+                    (userBalance !== null && userBalance <= MIN_BALANCE_THRESHOLD)
+                  }
+                  className={`w-full mt-4 py-3 px-4 rounded-lg text-white font-semibold flex items-center justify-center transition-colors ${ 
+                    (!isReady || isConnecting || isConnected || !selectedCountry || !nationalPhoneNumber.trim() || !isPhoneNumberValid || isLoadingBalance || (userBalance !== null && userBalance <= MIN_BALANCE_THRESHOLD))
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-green-500 hover:bg-green-600'
+                  }`}
+                  title={
+                    !isReady ? "Phone not ready" : 
+                    isConnecting ? "Connecting..." : 
+                    isConnected ? "Call in progress" : 
+                    !selectedCountry ? "Select a country" : 
+                    !nationalPhoneNumber.trim() ? "Enter a phone number" : 
+                    !isPhoneNumberValid ? "Invalid phone number" : 
+                    isLoadingBalance ? "Checking balance..." : 
+                    (userBalance !== null && userBalance <= MIN_BALANCE_THRESHOLD) ? "Insufficient balance" : 
+                    "Call"
+                  }
+                >
+                  <PhoneIcon className="h-5 w-5 mr-2" />
+                  Call
+                </button>
               </div>
             )}
           </>
