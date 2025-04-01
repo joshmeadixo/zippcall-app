@@ -70,6 +70,8 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
   const [balanceFetchError, setBalanceFetchError] = useState<string | null>(null);
   // Add state to track the real-time cost of the current call
   const [currentCallCost, setCurrentCallCost] = useState(0);
+  // Add a new state variable to store the current active call number
+  const [activeCallNumber, setActiveCallNumber] = useState<string>('');
 
   const {
     isReady,
@@ -85,6 +87,18 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
     requestMicrophonePermission,
     reinitializeDevice
   } = useTwilioDevice({ userId });
+
+  // Define the handleHangup function early in the component before it's used
+  const handleHangup = useCallback(() => {
+    console.log('[VoiceCall] Hanging up manually');
+    hangupCall();
+    // Reset call state
+    setCountrySelected(false);
+    setSelectedCountry(undefined);
+    setValidatedE164Number('');
+    setNationalPhoneNumber('');
+    setCurrentCallCost(0);
+  }, [hangupCall]);
 
   // Fetch user balance from Firestore using a real-time listener
   useEffect(() => {
@@ -150,6 +164,16 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
     if (isConnected && !callStartTime) {
       console.log('[VoiceCall] Call connected, recording start time');
       setCallStartTime(Date.now());
+      
+      // Store the current phone number when call starts
+      if (validatedE164Number) {
+        console.log(`[VoiceCall] Storing active call number: ${validatedE164Number}`);
+        setActiveCallNumber(validatedE164Number);
+      } else if (selectedCountry && nationalPhoneNumber) {
+        const formattedNumber = `+${getCountryCallingCode(selectedCountry)}${nationalPhoneNumber}`;
+        console.log(`[VoiceCall] Storing constructed call number: ${formattedNumber}`);
+        setActiveCallNumber(formattedNumber);
+      }
     } 
     // Handle call ending
     else if (!isConnected && !isConnecting && callStartTime) {
@@ -169,7 +193,7 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
 
         const newCall: CallHistoryEntry = {
           id: call?.parameters.CallSid || Date.now().toString(), // Use CallSid if available, fallback to timestamp
-          phoneNumber: validatedE164Number || 
+          phoneNumber: activeCallNumber || validatedE164Number || 
             (selectedCountry ? `+${getCountryCallingCode(selectedCountry)}${nationalPhoneNumber}` : nationalPhoneNumber) || 
             'Unknown', 
           timestamp: callStartTime, // Keep as JS timestamp for sending to API
@@ -222,6 +246,7 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
             setCurrentCallCost(0); // Reset current call cost
             // Update pricing ref to ensure it doesn't hold stale values
             pricingRef.current = {};
+            setActiveCallNumber(''); // Reset active call number at the end of the call
           }
         } else if (!user) {
           console.warn('[VoiceCall] Cannot record call: User not authenticated.');
@@ -245,7 +270,7 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
       
       handleCallEnd();
     }
-  }, [isAccepted, isConnected, isConnecting, callStartTime, user, validatedE164Number, selectedCountry, nationalPhoneNumber, isIncomingCall, callHistory, onHistoryUpdate, call]);
+  }, [isAccepted, isConnected, isConnecting, callStartTime, user, validatedE164Number, selectedCountry, nationalPhoneNumber, isIncomingCall, callHistory, onHistoryUpdate, call, activeCallNumber]);
 
   // Check for initialization taking too long
   useEffect(() => {
@@ -358,6 +383,7 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
     }
     console.log(`[startCall] Calling makeCall hook function with: ${e164Number}`);
     setValidatedE164Number(e164Number); // Ensure validated number is stored for history
+    setActiveCallNumber(e164Number); // Also store in the dedicated state variable
     await makeCall(e164Number);
   };
 
@@ -483,18 +509,6 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
       setIsReinitializing(false);
     }, 3000);
   };
-
-  // Define the handleHangup function with useCallback before it's used in the useEffect
-  const handleHangup = useCallback(() => {
-    console.log('[VoiceCall] Hanging up manually');
-    hangupCall();
-    // Reset call state
-    setCountrySelected(false);
-    setSelectedCountry(undefined);
-    setValidatedE164Number('');
-    setNationalPhoneNumber('');
-    setCurrentCallCost(0);
-  }, [hangupCall]);
 
   // Add useEffect for monitoring balance during active call
   useEffect(() => {
