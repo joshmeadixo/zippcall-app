@@ -72,6 +72,7 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
   const [currentCallCost, setCurrentCallCost] = useState(0);
   // Add a new state variable to store the current active call number
   const [activeCallNumber, setActiveCallNumber] = useState<string>('');
+  const isCallEndingRef = useRef(false); // <-- Add the ref flag
 
   const {
     isReady,
@@ -162,6 +163,8 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
   useEffect(() => {
     // Detect call start
     if (isConnected && !callStartTime) {
+      isCallEndingRef.current = false; // <-- Reset the flag on new call start
+      console.log('[VoiceCall] Call connected, reset isCallEndingRef');
       console.log('[VoiceCall] Call connected, recording start time');
       setCallStartTime(Date.now());
       
@@ -177,6 +180,13 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
     } 
     // Handle call ending
     else if (!isConnected && !isConnecting && callStartTime) {
+      if (isCallEndingRef.current) { // <-- Check the flag
+        console.log('[VoiceCall] Call end processing already triggered, skipping.');
+        return; 
+      }
+      isCallEndingRef.current = true; // <-- Set the flag
+      console.log('[VoiceCall] Call disconnected, setting isCallEndingRef to true');
+
       const handleCallEnd = async () => {
         // Clear any previous recording errors
         setCallRecordError(null);
