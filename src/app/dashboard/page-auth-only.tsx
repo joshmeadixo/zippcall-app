@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import VoiceCall, { VoiceCallHandle } from '@/components/VoiceCall';
 import CallHistory, { CallHistoryEntry } from '@/components/CallHistory';
 import { getUserCallHistory, deleteCallHistoryEntry } from '@/lib/call-history-db';
@@ -48,7 +47,7 @@ interface TransactionData {
 }
 
 export default function DashboardAuthOnly() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [callHistory, setCallHistory] = useState<CallHistoryEntry[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
