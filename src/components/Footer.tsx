@@ -63,25 +63,23 @@ export default function Footer() {
 
   }, [user, authLoading]); // Depend on user and authLoading
 
-  if (authLoading || !user) {
-    // console.log("[Footer Firestore Check] Rendering null (authLoading or no user)");
-    return null;
-  }
+  // Remove the early return for non-logged in users
+  // if (authLoading || !user) {
+  //   return null;
+  // }
   
-  // Only render the link if the check is complete AND user is admin
-  const showAdminLink = !isCheckingAdmin && isAdmin; 
+  // Only render the link if the check is complete AND user is admin AND user is logged in
+  const showAdminLink = user && !isCheckingAdmin && isAdmin; 
 
   // console.log(`[Footer Firestore Check] Rendering footer element. isAdmin=${isAdmin}, isCheckingAdmin=${isCheckingAdmin}, showAdminLink=${showAdminLink}`);
 
   return (
     <footer className="w-full py-4 px-4 mt-auto border-t border-gray-200 bg-gray-50">
       <div className="container mx-auto text-center text-xs space-y-1"> 
-        {/* Copyright Line */}
-        {!isCheckingAdmin && (
-           <div> 
-             <span className="text-gray-400">&copy; {new Date().getFullYear()} ZippCall</span>
-           </div>
-        )}
+        {/* Copyright Line - Always shown */}
+        <div> 
+          <span className="text-gray-400">&copy; {new Date().getFullYear()} ZippCall</span>
+        </div>
         
         {/* Admin Link Line (Conditional) */}
         {showAdminLink && (

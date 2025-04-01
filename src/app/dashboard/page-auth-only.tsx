@@ -14,6 +14,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { formatDistanceToNow } from 'date-fns';
 import Footer from '@/components/Footer';
 import AccountDetailsCard from '@/components/AccountDetailsCard';
+import Header from '@/components/Header';
 
 // Load Stripe promise outside component to avoid recreating on render
 // Ensure your publishable key is in .env.local as NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
@@ -388,31 +389,7 @@ export default function DashboardAuthOnly() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white shadow-md">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <div className="w-10 h-10 relative mr-2">
-              <Image 
-                src="/images/zippcall-logo.png" 
-                alt="ZippCall Logo" 
-                width={40} 
-                height={40}
-                className="object-contain"
-              />
-            </div>
-            <h1 className="text-2xl font-bold text-blue-500">ZippCall</h1>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            <button 
-              onClick={() => signOut()}
-              className="bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600 transition-colors"
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       <main className="container mx-auto px-4 py-6 flex-grow">
         {/* Revert to original grid layout */}

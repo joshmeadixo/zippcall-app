@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { CountryPricingCache, TwilioPriceData } from '@/types/pricing';
 import { getCountryPricing } from '@/lib/pricing/pricing-db';
 import { formatPrice } from '@/lib/pricing/pricing-engine';
-import PriceChangeAlerts from './PriceChangeAlerts';
 
 interface PricingDashboardProps {
   pricingData: Record<string, TwilioPriceData>;
@@ -365,9 +364,6 @@ export default function PricingDashboard({ pricingData: initialPricingData }: Pr
           {pricingData?.data && ` out of ${Object.keys(pricingData.data).length} total countries`}
         </div>
       </div>
-
-      {/* Price Change Alerts */}
-      <PriceChangeAlerts />
     </div>
   );
 } 

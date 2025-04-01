@@ -73,8 +73,8 @@ const CallHistory: React.FC<CallHistoryProps> = ({ calls, onCallClick, onDeleteC
 
   if (!calls.length) {
     return (
-      <div className="text-center py-8 text-gray-500">
-        <PhoneIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+      <div className="text-center py-4 text-gray-500">
+        <PhoneIcon className="h-6 w-6 mx-auto mb-1 opacity-50" />
         <p>No recent calls</p>
       </div>
     );
@@ -82,14 +82,15 @@ const CallHistory: React.FC<CallHistoryProps> = ({ calls, onCallClick, onDeleteC
 
   return (
     <div className="overflow-y-auto max-h-64">
-      <ul className="space-y-2">
+      <ul className="divide-y divide-gray-100">
         {calls.map((call) => (
           <li 
             key={call.id}
-            className="p-3 rounded-lg hover:bg-gray-50 transition-colors"
+            className="py-2 px-2 hover:bg-gray-50 transition-colors"
           >
             <div className="flex items-center">
-              <div className={`p-2 rounded-full mr-3 
+              {/* Direction icon */}
+              <div className={`p-1 rounded-full mr-2 
                 ${call.direction === 'incoming' 
                   ? call.status === 'answered' 
                     ? 'bg-green-100 text-green-600' 
@@ -98,71 +99,71 @@ const CallHistory: React.FC<CallHistoryProps> = ({ calls, onCallClick, onDeleteC
                 }`}
               >
                 {call.direction === 'incoming' ? (
-                  <ArrowDownLeftIcon className="h-5 w-5" />
+                  <ArrowDownLeftIcon className="h-3.5 w-3.5" />
                 ) : (
-                  <ArrowUpRightIcon className="h-5 w-5" />
+                  <ArrowUpRightIcon className="h-3.5 w-3.5" />
                 )}
               </div>
               
-              <div className="flex-1">
-                <div className="flex justify-between">
-                  <p className="font-medium">{call.phoneNumber}</p>
-                  <p className="text-xs text-gray-500 flex items-center">
-                    <ClockIcon className="h-3 w-3 mr-1" />
-                    {formatTimestamp(call.timestamp)}
-                  </p>
+              {/* Call info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <div className="truncate">
+                    <span className="font-medium text-sm">{call.phoneNumber}</span>
+                    <span className={`ml-2 text-xs ${
+                      call.status === 'missed' ? 'text-red-500' : 'text-gray-500'
+                    }`}>
+                      {call.status === 'missed' 
+                        ? 'Missed' 
+                        : call.status === 'rejected'
+                          ? 'Rejected'
+                          : `${call.direction === 'incoming' ? 'In' : 'Out'}`
+                      }
+                    </span>
+                  </div>
+                  
+                  {/* Action buttons */}
+                  <div className="flex shrink-0 space-x-1">
+                    <button
+                      onClick={(e) => handleCallClick(e, call.phoneNumber)}
+                      className="p-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors"
+                      title="Call this number"
+                    >
+                      <PhoneIcon className="h-3 w-3" />
+                    </button>
+                    
+                    {onDeleteClick && (
+                      <button
+                        onClick={(e) => handleDeleteClick(e, call.id)}
+                        className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
+                        title="Delete this call record"
+                      >
+                        <TrashIcon className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 
-                <div className="flex justify-between mt-1">
-                  <p className={`text-sm ${
-                    call.status === 'missed' ? 'text-red-500' : 'text-gray-500'
-                  }`}>
-                    {call.status === 'missed' 
-                      ? 'Missed Call' 
-                      : call.status === 'rejected'
-                        ? 'Call Rejected'
-                        : `${call.direction === 'incoming' ? 'Incoming' : 'Outgoing'} Call`
-                    }
-                  </p>
+                {/* Second row with time and duration info */}
+                <div className="flex justify-between items-center mt-0.5 text-xs text-gray-500">
+                  <div className="flex items-center">
+                    <ClockIcon className="h-2.5 w-2.5 mr-1" />
+                    <span>{formatTimestamp(call.timestamp)}</span>
+                  </div>
                   
                   {call.status === 'answered' && (
-                    <div className="flex items-center space-x-3">
-                      <p className="text-xs text-gray-500">
-                        {formatDuration(call.duration)}
-                      </p>
+                    <div className="flex items-center space-x-2">
+                      <span>{formatDuration(call.duration)}</span>
                       {call.cost !== undefined && (
-                        <p className="text-xs text-gray-600 flex items-center">
-                          <CurrencyDollarIcon className="h-3 w-3 mr-1" />
-                          ${call.cost.toFixed(4)}
-                        </p>
+                        <span className="flex items-center">
+                          <CurrencyDollarIcon className="h-2.5 w-2.5 mr-0.5" />
+                          ${call.cost.toFixed(2)}
+                        </span>
                       )}
                     </div>
                   )}
                 </div>
               </div>
-            </div>
-            
-            {/* Action buttons */}
-            <div className="flex justify-end mt-2 space-x-2">
-              <button
-                onClick={(e) => handleCallClick(e, call.phoneNumber)}
-                className="p-1.5 bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200 transition-colors flex items-center text-xs"
-                title="Call this number"
-              >
-                <PhoneIcon className="h-3.5 w-3.5 mr-1" />
-                <span>Call</span>
-              </button>
-              
-              {onDeleteClick && (
-                <button
-                  onClick={(e) => handleDeleteClick(e, call.id)}
-                  className="p-1.5 bg-red-100 text-red-600 rounded-md hover:bg-red-200 transition-colors flex items-center text-xs"
-                  title="Delete this call record"
-                >
-                  <TrashIcon className="h-3.5 w-3.5 mr-1" />
-                  <span>Delete</span>
-                </button>
-              )}
             </div>
           </li>
         ))}

@@ -388,10 +388,22 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
   };
 
   const handleDigitPressed = (digit: string) => {
+    // console.log(`[handleDigitPressed] Digit pressed: ${digit}, isConnected: ${isConnected}`); // Log digit and connection state
     if (isConnected && call) {
-      call.sendDigits(digit);
+      // console.log('[handleDigitPressed] Call is connected. Attempting to send digit...'); // Log entry into the 'if' block
+      // console.log('[handleDigitPressed] Current call object:', call); // Log the call object
+      try {
+        // console.log(`[handleDigitPressed] Calling sendDigits with: ${digit}`); // Log before sendDigits
+        call.sendDigits(digit);
+        // console.log(`[handleDigitPressed] sendDigits called successfully for: ${digit}`); // Log after sendDigits
+      } catch (error) {
+        console.error('[handleDigitPressed] Error calling sendDigits:', error); // Keep error logging just in case
+      }
     } else if (countrySelected) {
+        // console.log('[handleDigitPressed] Not connected, appending digit to number.'); // Log if not connected
         setNationalPhoneNumber(prev => prev + digit);
+    // } else {
+        // console.log('[handleDigitPressed] Not connected and no country selected.'); // Log if neither condition met
     }
   };
 
