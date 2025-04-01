@@ -61,14 +61,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid call status' }, { status: 400 });
     }
 
-    // 3. Perform Firestore Transaction (Deduct Balance + Save History)
     const db = getAdminFirestore();
     const userRef = db.collection('users').doc(userId);
-    // Use the call ID provided by the client for the history document
     const callHistoryRef = db.collection('callHistory').doc(callData.id); 
 
+    // --- Idempotency Check --- 
+    const existingCallDoc = await callHistoryRef.get();
+    if (existingCallDoc.exists) {
+      console.warn(`[API /call-cost] Call ${callData.id} already recorded. Skipping duplicate processing.`);
+      // Optionally fetch the current balance to return it accurately
+      const userDoc = await userRef.get();
+      const currentBalance = userDoc.data()?.balance || 0;
+      return NextResponse.json({ 
+        success: true, 
+        message: "Call already recorded", 
+        newBalance: currentBalance, 
+        insufficientFunds: false // Assuming no deduction happened this time
+      });
+    }
+    // --- End Idempotency Check ---
+
     // Declare variables outside transaction scope
-    let costToDeduct = callData.cost; // Default to full cost
+    let costToDeduct = callData.cost;
     let insufficientFunds = false; // Default to false
     let finalRecordedCost = callData.cost; // Variable to hold the cost saved to history
 
