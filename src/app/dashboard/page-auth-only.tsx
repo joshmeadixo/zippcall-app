@@ -17,6 +17,9 @@ import AccountDetailsCard from '@/components/AccountDetailsCard';
 
 // Load Stripe promise outside component to avoid recreating on render
 // Ensure your publishable key is in .env.local as NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+console.log('[Dashboard] Initializing Stripe with key:', process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ? 'Key available' : 'Key missing');
+console.log('[Dashboard] App URL for redirects:', process.env.NEXT_PUBLIC_APP_URL || 'Not set');
+
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
   : Promise.resolve(null);
@@ -217,6 +220,11 @@ export default function DashboardAuthOnly() {
     setPaymentError(null);
 
     try {
+      // Debug logging for environment
+      console.log(`[Dashboard] Environment check for Stripe payment:`);
+      console.log(`[Dashboard] NEXT_PUBLIC_APP_URL: ${process.env.NEXT_PUBLIC_APP_URL}`);
+      console.log(`[Dashboard] Client-side environment: ${process.env.NODE_ENV}`);
+      
       console.log(`[Dashboard] Requesting Stripe session for $${amount}`);
       const token = await user.getIdToken();
       const response = await fetch('/api/stripe/create-checkout-session', {
