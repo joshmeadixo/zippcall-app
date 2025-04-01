@@ -10,7 +10,6 @@ interface PricingDashboardProps {
   pricingData: Record<string, TwilioPriceData>;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function PricingDashboard({ pricingData: initialPricingData }: PricingDashboardProps) {
   const [pricingData, setPricingData] = useState<CountryPricingCache | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);

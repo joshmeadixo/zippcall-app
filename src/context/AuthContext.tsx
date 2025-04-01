@@ -27,11 +27,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, (userAuth) => {
+      setUser(userAuth); 
       setLoading(false);
     });
-
     return () => unsubscribe();
   }, []);
 
