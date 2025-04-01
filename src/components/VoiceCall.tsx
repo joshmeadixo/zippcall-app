@@ -7,7 +7,7 @@ import DialPad from './DialPad';
 import CallTimer from './CallTimer';
 import CallControls from './CallControls';
 import AudioVisualizer from './AudioVisualizer';
-import CallHistory, { CallHistoryEntry } from './CallHistory';
+import { CallHistoryEntry } from './CallHistory';
 import PhoneInputWithFlag from './phone/PhoneInput';
 import PhoneInputCountry from './phone/PhoneInputCountry';
 import { validatePhoneNumber, detectCountryFromE164, extractNationalNumber } from '@/utils/phoneValidation';
@@ -423,6 +423,8 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
     setNationalPhoneNumber('');
   };
 
+  // Handle history call click - marking as unused but keeping for future use
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleHistoryCallClick = (number: string) => {
     if (!isConnected && !isConnecting) {
       console.log(`[handleHistoryCallClick] Call history number clicked: ${number}`);
@@ -479,7 +481,8 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
     }
   };
 
-  // Handle deleting a call history entry
+  // Handle deleting a call history entry - marking as unused but keeping for future use
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDeleteHistoryEntry = (callId: string) => {
     console.warn("[handleDeleteHistoryEntry] Deleting history directly from VoiceCall might cause issues. Consider moving delete logic to parent.");
     // This function might need refactoring if it used the local callHistory state.
