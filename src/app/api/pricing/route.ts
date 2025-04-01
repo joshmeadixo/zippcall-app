@@ -8,6 +8,14 @@ import { getPriceForPhoneNumber, calculateCallCost, getPricesForCountries } from
  * - duration: (optional) Call duration in seconds to calculate cost
  */
 export async function GET(request: NextRequest) {
+  // Define CORS headers - REPLACE '*' with your specific marketing domain
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*', // e.g., 'https://yourmarketing.site'
+    // Add other CORS headers if needed, like Allow-Methods, Allow-Headers
+    // 'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    // 'Access-Control-Allow-Headers': 'Content-Type',
+  };
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const phoneNumber = searchParams.get('phoneNumber');
@@ -17,7 +25,7 @@ export async function GET(request: NextRequest) {
     if (!phoneNumber) {
       return NextResponse.json(
         { error: 'Phone number is required' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
     
@@ -28,7 +36,7 @@ export async function GET(request: NextRequest) {
       if (isNaN(duration) || duration < 0) {
         return NextResponse.json(
           { error: 'Duration must be a non-negative number' },
-          { status: 400 }
+          { status: 400, headers: corsHeaders }
         );
       }
     }
@@ -39,7 +47,7 @@ export async function GET(request: NextRequest) {
     if (!pricing) {
       return NextResponse.json(
         { error: 'Could not determine pricing for the given phone number' },
-        { status: 404 }
+        { status: 404, headers: corsHeaders }
       );
     }
     
@@ -55,15 +63,15 @@ export async function GET(request: NextRequest) {
         ...pricing,
         calculatedCost: cost,
         duration
-      });
+      }, { headers: corsHeaders });
     }
     
-    return NextResponse.json(pricing);
+    return NextResponse.json(pricing, { headers: corsHeaders });
   } catch (error) {
     console.error('Error in pricing lookup:', error);
     return NextResponse.json(
       { error: 'Failed to retrieve pricing' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
