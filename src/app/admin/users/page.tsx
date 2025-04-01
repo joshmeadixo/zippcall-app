@@ -66,9 +66,10 @@ export default function UserManagementPage() {
         const data: AdminUserView[] = await response.json();
         setUsers(data);
 
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error fetching users:', err);
-        setError(err.message || 'An unexpected error occurred while fetching users.');
+        const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred while fetching users.';
+        setError(errorMessage);
       } finally {
         setIsLoading(false);
       }
@@ -155,9 +156,10 @@ export default function UserManagementPage() {
       // Clear edit state
       handleCancelEdit(); 
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error updating balance:', err);
-      setUpdateError(err.message || 'An unexpected error occurred.');
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred.';
+      setUpdateError(errorMessage);
     } finally {
       setIsUpdating(false);
     }
@@ -168,8 +170,8 @@ export default function UserManagementPage() {
     if (!dateString) return 'N/A';
     try {
       return new Date(dateString).toLocaleString();
-    } catch (error: any) {
-      console.error("[UserManagementPage] Error formatting date:", error);
+    } catch {
+      // Parameter name removed to avoid unused variable warning
       return 'Invalid Date';
     }
   };

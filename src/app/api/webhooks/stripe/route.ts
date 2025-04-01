@@ -81,10 +81,11 @@ export async function POST(req: NextRequest) {
     event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
     console.log(`[Webhook /stripe] Event constructed: ${event.id}, Type: ${event.type}`);
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     // On error, log and return the error message
-    console.error(`[Webhook /stripe] Error constructing event: ${err.message}`);
-    return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
+    console.error('Error in Stripe webhook:', err);
+    const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+    return NextResponse.json({ error: `Webhook Error: ${errorMessage}` }, { status: 400 });
   }
 
   // Handle the event
@@ -151,9 +152,10 @@ export async function POST(req: NextRequest) {
         
         console.log(`[Webhook /stripe] Firestore transaction successful for user ${userId} (Balance updated & transaction recorded).`);
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error(`[Webhook /stripe] Firestore transaction failed for user ${userId}:`, error);
-        return NextResponse.json({ error: 'Failed to update user balance or record transaction.' }, { status: 500 });
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+        return NextResponse.json({ error: `Failed to update user balance or record transaction. Error: ${errorMessage}` }, { status: 500 });
       }
       
       break; // Exit switch after handling

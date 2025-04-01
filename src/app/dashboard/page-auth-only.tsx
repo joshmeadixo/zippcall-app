@@ -249,12 +249,11 @@ export default function DashboardAuthOnly() {
         throw new Error(error.message || 'Could not redirect to payment page.');
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[Dashboard] Error processing payment:', error);
-      setPaymentError(error.message || 'An unexpected error occurred.');
-      // Keep modal open on error for user feedback
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
+      setPaymentError(errorMessage);
     } finally {
-      // Stop processing indicator if redirect fails
       setIsProcessingPayment(false);
     }
   };
@@ -284,18 +283,7 @@ export default function DashboardAuthOnly() {
   console.log(`[page-auth-only] Rendering dashboard. Auth Loading: ${loading}, User: ${user ? user.uid : 'null'}`);
 
   const handleCallHistoryUpdate = (newHistory: CallHistoryEntry[]) => {
-    // We'll merge the local history with what we have from Firestore
-    // The most recent call (which just ended) will be at the beginning of newHistory
-    // We'll take that and add it to our existing history
-    if (newHistory.length > 0) {
-      const mostRecentCall = newHistory[0];
-      // Check if this call is already in our history
-      const callExists = callHistory.some(call => call.id === mostRecentCall.id);
-      if (!callExists) {
-        // Add the new call to the beginning of our history
-        setCallHistory([mostRecentCall, ...callHistory]);
-      }
-    }
+    setCallHistory(newHistory);
   };
 
   // Handle click on a call history entry

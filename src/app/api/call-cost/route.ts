@@ -144,15 +144,15 @@ export async function POST(req: NextRequest) {
     // Now insufficientFunds is accessible here
     return NextResponse.json({ success: true, newBalance: newBalance, insufficientFunds });
 
-  } catch (error: any) {
-    console.error('Error in /api/call-cost:', error);
-    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
+  } catch (error: unknown) {
+    console.error('[API /call-cost] Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     // Determine status code based on error type (Insufficient funds error is now handled above)
     let status = 500;
-    if (message === 'User document does not exist.') {
+    if (errorMessage === 'User document does not exist.') {
       status = 404;
     } // No need for 402 check here anymore
     
-    return NextResponse.json({ error: `Failed to record call: ${message}` }, { status: status });
+    return NextResponse.json({ error: errorMessage }, { status: status });
   }
 } 

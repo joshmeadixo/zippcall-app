@@ -83,9 +83,9 @@ export async function GET(req: NextRequest) {
     // 4. Return Success Response
     return NextResponse.json(transactions);
 
-  } catch (error: any) {
-    console.error('[API /transactions] Error:', error);
-    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
-    return NextResponse.json({ error: `Failed to fetch transactions: ${message}` }, { status: 500 });
+  } catch (error: unknown) {
+    console.error('Error in transactions API:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 } 

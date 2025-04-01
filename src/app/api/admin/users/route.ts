@@ -67,10 +67,9 @@ export async function GET(req: NextRequest) {
     // 5. Return User List
     return NextResponse.json(usersList);
 
-  } catch (error: any) {
-    console.error('[API /admin/users] Error fetching users:', error);
-    // Avoid exposing internal error details
-    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
-    return NextResponse.json({ error: `Failed to fetch users: ${message}` }, { status: 500 });
+  } catch (error: unknown) {
+    console.error('Error in admin/users API:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 } 

@@ -103,10 +103,9 @@ export async function POST(req: NextRequest) {
     console.log(`[API create-checkout] Stripe session created: ${session.id} for user ${userId}`);
     return NextResponse.json({ sessionId: session.id });
 
-  } catch (error: any) {
-    console.error('[API create-checkout] Error:', error);
-    const message = error.message || 'An unexpected error occurred';
-    // Don't expose raw Stripe errors potentially
-    return NextResponse.json({ error: `Failed to create checkout session: ${message}` }, { status: 500 });
+  } catch (error: unknown) {
+    console.error('Error in create-checkout-session:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 } 

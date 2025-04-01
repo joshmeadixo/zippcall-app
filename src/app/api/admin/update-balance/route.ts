@@ -9,6 +9,11 @@ interface UpdateBalanceRequest {
   newBalance: number;
 }
 
+// Define a custom error interface for Firestore errors
+interface FirestoreError extends Error {
+  code?: number;
+}
+
 export async function POST(req: NextRequest) {
   try {
     // 1. Verify Requester is Admin
@@ -63,13 +68,13 @@ export async function POST(req: NextRequest) {
         balance: newBalance 
       });
       console.log(`[API /admin/update-balance] Successfully updated balance for user ${targetUserId} to ${newBalance}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
         // Check if the error is because the user document doesn't exist
-        if (error.code === 5) { // Firestore error code for NOT_FOUND
+        if (error instanceof Error && 'code' in error && (error as FirestoreError).code === 5) { // Firestore error code for NOT_FOUND
              console.error(`[API /admin/update-balance] Target user document not found: ${targetUserId}`);
              return NextResponse.json({ error: `Target user with ID ${targetUserId} not found.` }, { status: 404 });
         } else {
-             // Rethrow other errors
+             // Re-throw for the outer catch block to handle generic errors
              throw error;
         }
     }
@@ -77,10 +82,10 @@ export async function POST(req: NextRequest) {
     // 4. Return Success Response
     return NextResponse.json({ success: true, updatedUserId: targetUserId, newBalance: newBalance });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[API /admin/update-balance] Error:', error);
-    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     // Avoid exposing detailed internal errors
-    return NextResponse.json({ error: `Failed to update balance: ${message}` }, { status: 500 });
+    return NextResponse.json({ error: `Failed to update balance: ${errorMessage}` }, { status: 500 });
   }
 } 

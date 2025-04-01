@@ -65,18 +65,12 @@ export async function POST(req: NextRequest) {
     // 4. Return Success Response
     return NextResponse.json({ success: true, newBalance: newBalance });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    console.error('[API /add-funds] Error:', error);
+  } catch (error: unknown) {
+    console.error('Error in /api/add-funds:', error);
+    // Provide a generic error message to the client
     const message = error instanceof Error ? error.message : 'An unexpected error occurred';
-    // Determine status code based on error type
-    let status = 500;
-    if (message === 'User document does not exist.') {
-      status = 404;
-    } else if (message === 'Insufficient funds') {
-      status = 402; // Payment Required
-    }
-    
-    return NextResponse.json({ error: `Failed to add funds: ${message}` }, { status });
+    // Determine status code based on error type if possible, otherwise default to 500
+    const status = error instanceof Error && error.message === 'User document does not exist.' ? 404 : 500; 
+    return NextResponse.json({ error: `Failed to add funds: ${message}` }, { status: status });
   }
 } 
