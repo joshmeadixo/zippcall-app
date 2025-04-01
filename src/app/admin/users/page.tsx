@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import AdminAccessOnly from '@/components/admin/AdminAccessOnly';
-import { Metadata } from 'next'; // Use Metadata type if needed, but remove static export
 
 // Define a type for the user data we expect from the API
 interface AdminUserView {
@@ -169,7 +168,8 @@ export default function UserManagementPage() {
     if (!dateString) return 'N/A';
     try {
       return new Date(dateString).toLocaleString();
-    } catch (e) {
+    } catch (error: any) {
+      console.error("[UserManagementPage] Error formatting date:", error);
       return 'Invalid Date';
     }
   };

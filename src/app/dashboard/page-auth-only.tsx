@@ -6,12 +6,11 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import VoiceCall, { VoiceCallHandle } from '@/components/VoiceCall';
 import CallHistory, { CallHistoryEntry } from '@/components/CallHistory';
-import AdminNavLink from '@/components/AdminNavLink';
 import { getUserCallHistory, deleteCallHistoryEntry } from '@/lib/call-history-db';
-import { doc, getDoc, onSnapshot, collection, query, orderBy, limit, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AddFundsModal from '@/components/AddFundsModal';
-import { loadStripe, Stripe } from '@stripe/stripe-js';
+import { loadStripe } from '@stripe/stripe-js';
 import { formatDistanceToNow } from 'date-fns';
 import Footer from '@/components/Footer';
 import AccountDetailsCard from '@/components/AccountDetailsCard';
@@ -253,7 +252,9 @@ export default function DashboardAuthOnly() {
     } catch (error: any) {
       console.error('[Dashboard] Error processing payment:', error);
       setPaymentError(error.message || 'An unexpected error occurred.');
+      // Keep modal open on error for user feedback
     } finally {
+      // Stop processing indicator if redirect fails
       setIsProcessingPayment(false);
     }
   };
