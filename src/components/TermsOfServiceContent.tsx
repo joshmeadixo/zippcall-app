@@ -7,7 +7,7 @@ export default function TermsOfServiceContent() {
         <h2 className="text-2xl font-bold text-zippcall-blue mb-4">1. Agreement to Terms</h2>
         <div className="pl-4 space-y-4">
           <p>
-            These Terms of Service ("Terms") constitute a legally binding agreement between you and ZippCall ("we," "our," or "us") governing your access to and use of the ZippCall website and application (collectively, the "Service").
+            These Terms of Service (&ldquo;Terms&rdquo;) constitute a legally binding agreement between you and ZippCall (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;) governing your access to and use of the ZippCall website and application (collectively, the &ldquo;Service&rdquo;).
           </p>
           <p>
             By accessing or using the Service, you agree to be bound by these Terms. If you do not agree to these Terms, you may not access or use the Service.
@@ -19,7 +19,7 @@ export default function TermsOfServiceContent() {
         <h2 className="text-2xl font-bold text-zippcall-blue mb-4">2. Changes to Terms</h2>
         <div className="pl-4">
           <p>
-            We reserve the right to modify these Terms at any time. We will provide notice of any material changes by posting the updated Terms on this page and updating the "Last Updated" date. Your continued use of the Service after any such changes constitutes your acceptance of the revised Terms.
+            We reserve the right to modify these Terms at any time. We will provide notice of any material changes by posting the updated Terms on this page and updating the &ldquo;Last Updated&rdquo; date. Your continued use of the Service after any such changes constitutes your acceptance of the revised Terms.
           </p>
         </div>
       </section>
@@ -99,10 +99,10 @@ export default function TermsOfServiceContent() {
         <h2 className="text-2xl font-bold text-zippcall-blue mb-4">9. User Content</h2>
         <div className="pl-4 space-y-4">
           <p>
-            You retain ownership of any content you submit, post, or display on or through the Service ("User Content"). By submitting User Content, you grant us a worldwide, non-exclusive, royalty-free license to use, reproduce, modify, adapt, publish, translate, and distribute such content in connection with providing and promoting the Service.
+            You retain ownership of any content you submit, post, or display on or through the Service (&ldquo;User Content&rdquo;). By submitting User Content, you grant us a worldwide, non-exclusive, royalty-free license to use, reproduce, modify, adapt, publish, translate, and distribute such content in connection with providing and promoting the Service.
           </p>
           <p>
-            You represent and warrant that you own or have the necessary rights to submit User Content and that such content does not violate any third party's rights or applicable laws.
+            You represent and warrant that you own or have the necessary rights to submit User Content and that such content does not violate any third party&apos;s rights or applicable laws.
           </p>
         </div>
       </section>
@@ -129,7 +129,7 @@ export default function TermsOfServiceContent() {
         <h2 className="text-2xl font-bold text-zippcall-blue mb-4">12. Disclaimer of Warranties</h2>
         <div className="pl-4 space-y-4">
           <p>
-            The Service is provided on an "AS IS" and "AS AVAILABLE" basis. ZippCall expressly disclaims all warranties of any kind, whether express or implied, including but not limited to the implied warranties of merchantability, fitness for a particular purpose, and non-infringement.
+            The Service is provided on an &ldquo;AS IS&rdquo; and &ldquo;AS AVAILABLE&rdquo; basis. ZippCall expressly disclaims all warranties of any kind, whether express or implied, including but not limited to the implied warranties of merchantability, fitness for a particular purpose, and non-infringement.
           </p>
           <p>
             We make no warranty that (i) the Service will meet your requirements; (ii) the Service will be uninterrupted, timely, secure, or error-free; (iii) the results that may be obtained from the use of the Service will be accurate or reliable; and (iv) any errors in the Service will be corrected.

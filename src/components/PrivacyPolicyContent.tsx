@@ -7,7 +7,7 @@ export default function PrivacyPolicyContent() {
         <h2 className="text-2xl font-bold text-zippcall-blue mb-4">1. Introduction</h2>
         <div className="pl-4 space-y-4">
           <p>
-            ZippCall ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and mobile application (collectively, the "Service").
+            ZippCall (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;) is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and mobile application (collectively, the &ldquo;Service&rdquo;).
           </p>
           <p>
             Please read this Privacy Policy carefully. By accessing or using the Service, you acknowledge that you have read, understood, and agree to be bound by this Privacy Policy.
@@ -110,13 +110,13 @@ export default function PrivacyPolicyContent() {
             <li>Withdrawing consent where processing is based on your consent</li>
           </ul>
           <p>
-            To exercise these rights, please contact us using the information provided in the "Contact Us" section.
+            To exercise these rights, please contact us using the information provided in the &ldquo;Contact Us&rdquo; section.
           </p>
         </div>
       </section>
 
       <section className="mb-10">
-        <h2 className="text-2xl font-bold text-zippcall-blue mb-4">8. Children's Privacy</h2>
+        <h2 className="text-2xl font-bold text-zippcall-blue mb-4">8. Children&apos;s Privacy</h2>
         <div className="pl-4">
           <p>
             Our Service is not directed to children under the age of 16. We do not knowingly collect personal information from children under 16. If you are a parent or guardian and believe that your child has provided us with personal information, please contact us.
@@ -137,7 +137,7 @@ export default function PrivacyPolicyContent() {
         <h2 className="text-2xl font-bold text-zippcall-blue mb-4">10. Changes to This Privacy Policy</h2>
         <div className="pl-4">
           <p>
-            We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last Updated" date. You are advised to review this Privacy Policy periodically for any changes.
+            We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the &ldquo;Last Updated&rdquo; date. You are advised to review this Privacy Policy periodically for any changes.
           </p>
         </div>
       </section>
