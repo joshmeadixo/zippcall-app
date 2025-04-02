@@ -8,7 +8,7 @@ import { CountryPricingCache } from '@/types/pricing';
 export async function GET(request: NextRequest) {
   // Define CORS headers - REPLACE '*' with your specific marketing domain
   const corsHeaders = {
-    'Access-Control-Allow-Origin': '*', // e.g., 'https://yourmarketing.site'
+    'Access-Control-Allow-Origin': 'https://www.zappcall.com', // e.g., 'https://yourmarketing.site'
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   };

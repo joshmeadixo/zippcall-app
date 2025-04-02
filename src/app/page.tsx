@@ -18,6 +18,9 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { ensureUserDocument } from '@/lib/user-db';
 import Footer from '@/components/Footer';
+import LegalModal from '@/components/LegalModal';
+import PrivacyPolicyContent from '@/components/PrivacyPolicyContent';
+import TermsOfServiceContent from '@/components/TermsOfServiceContent';
 
 export default function Home() {
   const [email, setEmail] = useState('');
@@ -26,6 +29,10 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const { user, loading } = useAuth();
   const router = useRouter();
+  
+  // State for modals
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+  const [showTermsOfService, setShowTermsOfService] = useState(false);
 
   // Redirect to dashboard if already logged in
   useEffect(() => {
@@ -154,7 +161,19 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
       <main className="flex-grow bg-gradient-to-b from-zippcall-light-blue/10 to-white">
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 py-8 relative">
+          {/* More Info Button in top right */}
+          <div className="absolute top-2 right-4">
+            <a 
+              href="https://www.zippcall.com" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="btn btn-sm btn-outline text-zippcall-blue border-zippcall-blue hover:bg-zippcall-blue hover:text-white"
+            >
+              More Info
+            </a>
+          </div>
+          
           <div className="max-w-md mx-auto">
             <div className="text-center mb-8">
               {/* Logo */}
@@ -274,11 +293,46 @@ export default function Home() {
                   </div>
                 </form>
               )}
+              
+              <div className="text-xs text-center text-gray-400 mt-6">
+                By signing up you agree to our{' '}
+                <button 
+                  onClick={() => setShowPrivacyPolicy(true)}
+                  className="text-zippcall-blue hover:underline"
+                >
+                  Privacy Policy
+                </button>{' '}
+                and{' '}
+                <button 
+                  onClick={() => setShowTermsOfService(true)}
+                  className="text-zippcall-blue hover:underline"
+                >
+                  Terms
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </main>
       <Footer />
+      
+      {/* Privacy Policy Modal */}
+      <LegalModal
+        isOpen={showPrivacyPolicy}
+        onClose={() => setShowPrivacyPolicy(false)}
+        title="Privacy Policy"
+      >
+        <PrivacyPolicyContent />
+      </LegalModal>
+      
+      {/* Terms of Service Modal */}
+      <LegalModal
+        isOpen={showTermsOfService}
+        onClose={() => setShowTermsOfService(false)}
+        title="Terms of Service"
+      >
+        <TermsOfServiceContent />
+      </LegalModal>
     </div>
   );
 }
