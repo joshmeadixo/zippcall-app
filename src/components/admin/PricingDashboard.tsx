@@ -7,9 +7,10 @@ import { formatPrice } from '@/lib/pricing/pricing-engine';
 
 interface PricingDashboardProps {
   pricingData: Record<string, TwilioPriceData>;
+  topWidget?: React.ReactNode;
 }
 
-export default function PricingDashboard({ pricingData: initialPricingData }: PricingDashboardProps) {
+export default function PricingDashboard({ pricingData: initialPricingData, topWidget }: PricingDashboardProps) {
   const [pricingData, setPricingData] = useState<CountryPricingCache | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -212,6 +213,8 @@ export default function PricingDashboard({ pricingData: initialPricingData }: Pr
   
   return (
     <div>
+      {topWidget && <div className="mb-6">{topWidget}</div>}
+
       <div className="p-6 bg-white shadow rounded-lg">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold text-gray-800">Voice Pricing Data</h2>
@@ -327,32 +330,32 @@ export default function PricingDashboard({ pricingData: initialPricingData }: Pr
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {formatPricingForDisplay().map((item) => (
-                <tr key={item.countryCode}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {item.countryCode}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {item.countryName}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatPrice(item.basePrice, item.currency)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatPrice(item.ourPrice, item.currency)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(item.lastUpdated)}
-                  </td>
-                </tr>
-              ))}
-              
-              {formatPricingForDisplay().length === 0 && (
+              {formatPricingForDisplay().length === 0 && !error ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
-                    {searchQuery ? 'No countries match your search criteria' : 'No pricing data available'}
+                  <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                    {searchQuery ? 'No countries match your search.' : 'No pricing data available.'}
                   </td>
                 </tr>
+              ) : (
+                formatPricingForDisplay().map((item) => (
+                  <tr key={item.countryCode} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {item.countryCode}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {item.countryName}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatPrice(item.basePrice, item.currency)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatPrice(item.ourPrice, item.currency)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(item.lastUpdated)}
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>

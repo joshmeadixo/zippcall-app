@@ -70,4 +70,22 @@ export async function getCallRecords(): Promise<AdminCallRecord[]> {
     // For now, we'll return an empty array and log the error.
     return []; 
   }
+}
+
+/**
+ * Calculates the total duration of all call records.
+ */
+export async function getTotalCallDuration(): Promise<number> {
+  try {
+    const callRecords = await getCallRecords(); // Reuse existing function to get records
+    
+    const totalDuration = callRecords.reduce((sum, record) => sum + (record.duration || 0), 0);
+
+    console.log(`[Admin Actions] Calculated total call duration: ${totalDuration} seconds.`);
+    return totalDuration;
+
+  } catch (error) {
+    console.error('[Admin Actions] Error calculating total call duration:', error);
+    return 0; // Return 0 or handle error as appropriate
+  }
 } 

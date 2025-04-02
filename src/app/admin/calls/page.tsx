@@ -1,8 +1,7 @@
-'use client';
-
-import React, { useState, useEffect } from 'react';
-import { getCallRecords, AdminCallRecord } from './actions';
+import React from 'react';
+import { getCallRecords, AdminCallRecord, getTotalCallDuration } from './actions';
 import { format } from 'date-fns';
+import TotalCallDurationWidget from '@/components/admin/TotalCallDurationWidget';
 
 // Helper to format duration from seconds to HH:MM:SS or MM:SS
 const formatDuration = (seconds: number): string => {
@@ -25,39 +24,27 @@ const formatDuration = (seconds: number): string => {
   }
 };
 
-export default function CallsPage() {
-  const [callRecords, setCallRecords] = useState<AdminCallRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchRecords = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const records = await getCallRecords();
-        setCallRecords(records);
-      } catch (err) {
-        console.error("Failed to fetch call records:", err);
-        setError('Failed to load call records. Please try again later.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchRecords();
-  }, []);
+export default async function CallsPage() {
+  let callRecords: AdminCallRecord[] = [];
+  let error: string | null = null;
+  
+  try {
+    [callRecords] = await Promise.all([
+      getCallRecords(),
+      getTotalCallDuration()
+    ]);
+  } catch (err) {
+    console.error("Failed to fetch call data:", err);
+    error = 'Failed to load call data. Please try again later.';
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Call Records</h1>
       
-      {isLoading && (
-        <div className="text-center py-10">
-          <div className="loading loading-spinner loading-lg text-blue-500"></div>
-          <p className="mt-2">Loading calls...</p>
-        </div>
-      )}
+      <div className="mb-6">
+        <TotalCallDurationWidget />
+      </div>
 
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
@@ -66,7 +53,7 @@ export default function CallsPage() {
         </div>
       )}
 
-      {!isLoading && !error && (
+      {!error && (
         <div className="bg-white shadow-md rounded-lg overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -83,7 +70,7 @@ export default function CallsPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {callRecords.length === 0 ? (
+              {callRecords.length === 0 && !error ? (
                 <tr>
                   <td colSpan={9} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">No call records found.</td>
                 </tr>

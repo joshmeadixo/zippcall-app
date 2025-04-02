@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: 'Manage call pricing for different countries'
 };
 
-export default function PricingPage() {
+export default async function PricingPage() {
   // Create an empty pricingData object to satisfy the component's props requirement
   const emptyPricingData: Record<string, TwilioPriceData> = {};
 
