@@ -1,3 +1,4 @@
+import React from 'react';
 import Link from 'next/link';
 import { Metadata } from 'next';
 import AdminAccessOnly from '@/components/admin/AdminAccessOnly';
@@ -8,6 +9,9 @@ export const metadata: Metadata = {
   title: 'Admin Dashboard - Zipp Call',
   description: 'Administrative controls for Zipp Call',
 };
+
+// Force dynamic rendering to ensure data is fresh on each request
+export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
   const adminModules = [

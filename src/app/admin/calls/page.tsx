@@ -4,6 +4,9 @@ import { format } from 'date-fns';
 import TotalCallDurationWidget from '@/components/admin/TotalCallDurationWidget';
 import MobileCardView from '@/components/admin/MobileCardView';
 
+// Force dynamic rendering to ensure data is fresh on each request
+export const dynamic = 'force-dynamic';
+
 // Helper to format duration from seconds to HH:MM:SS or MM:SS
 const formatDuration = (seconds: number): string => {
   if (isNaN(seconds) || seconds < 0) return '0s';

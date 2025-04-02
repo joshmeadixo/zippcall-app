@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   title: 'User Management - Admin Dashboard',
 };
 
+// Force dynamic rendering to ensure data is fresh on each request
+export const dynamic = 'force-dynamic';
+
 export default async function UserManagementPage() {
   let users: AdminUserRecord[] = [];
   let error: string | null = null;
