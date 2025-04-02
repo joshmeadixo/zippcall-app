@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { CountryPricingCache, TwilioPriceData } from '@/types/pricing';
 import { getCountryPricing } from '@/lib/pricing/pricing-db';
 import { formatPrice } from '@/lib/pricing/pricing-engine';
+import MobileCardView from '@/components/admin/MobileCardView';
 
 interface PricingDashboardProps {
   pricingData: Record<string, TwilioPriceData>;
@@ -216,7 +217,7 @@ export default function PricingDashboard({ pricingData: initialPricingData, topW
       {topWidget && <div className="mb-6">{topWidget}</div>}
 
       <div className="p-6 bg-white shadow rounded-lg">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-2">
           <h2 className="text-xl font-semibold text-gray-800">Voice Pricing Data</h2>
           
           <div className="flex items-center gap-3">
@@ -251,88 +252,63 @@ export default function PricingDashboard({ pricingData: initialPricingData, topW
             </div>
           </div>
         </div>
-        
-        {/* Pricing Table */}
-        <div className="overflow-x-auto">
+
+        {/* Desktop table view */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th 
-                  scope="col" 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => handleSort('countryCode')}
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 >
-                  <div className="flex items-center">
-                    Country Code
-                    {sortField === 'countryCode' && (
-                      <span className="ml-1">
-                        {sortDirection === 'asc' ? '↑' : '↓'}
-                      </span>
-                    )}
-                  </div>
+                  Country Code
+                  {sortField === 'countryCode' && (
+                    <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
                 </th>
                 <th 
-                  scope="col" 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => handleSort('countryName')}
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 >
-                  <div className="flex items-center">
-                    Country Name
-                    {sortField === 'countryName' && (
-                      <span className="ml-1">
-                        {sortDirection === 'asc' ? '↑' : '↓'}
-                      </span>
-                    )}
-                  </div>
+                  Country Name
+                  {sortField === 'countryName' && (
+                    <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
                 </th>
                 <th 
-                  scope="col" 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => handleSort('basePrice')}
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 >
-                  <div className="flex items-center">
-                    Base Price
-                    {sortField === 'basePrice' && (
-                      <span className="ml-1">
-                        {sortDirection === 'asc' ? '↑' : '↓'}
-                      </span>
-                    )}
-                  </div>
+                  Base Price
+                  {sortField === 'basePrice' && (
+                    <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
                 </th>
                 <th 
-                  scope="col" 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => handleSort('ourPrice')}
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 >
-                  <div className="flex items-center">
-                    Our Price
-                    {sortField === 'ourPrice' && (
-                      <span className="ml-1">
-                        {sortDirection === 'asc' ? '↑' : '↓'}
-                      </span>
-                    )}
-                  </div>
+                  Our Price
+                  {sortField === 'ourPrice' && (
+                    <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
                 </th>
                 <th 
-                  scope="col" 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => handleSort('lastUpdated')}
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 >
-                  <div className="flex items-center">
-                    Last Updated
-                    {sortField === 'lastUpdated' && (
-                      <span className="ml-1">
-                        {sortDirection === 'asc' ? '↑' : '↓'}
-                      </span>
-                    )}
-                  </div>
+                  Last Updated
+                  {sortField === 'lastUpdated' && (
+                    <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {formatPricingForDisplay().length === 0 && !error ? (
+              {formatPricingForDisplay().length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                  <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
                     {searchQuery ? 'No countries match your search.' : 'No pricing data available.'}
                   </td>
                 </tr>
@@ -360,11 +336,35 @@ export default function PricingDashboard({ pricingData: initialPricingData, topW
             </tbody>
           </table>
         </div>
+
+        {/* Mobile card view */}
+        <div className="md:hidden">
+          {formatPricingForDisplay().length === 0 ? (
+            <div className="bg-white rounded-lg shadow p-4 text-center text-gray-500">
+              {searchQuery ? 'No countries match your search.' : 'No pricing data available.'}
+            </div>
+          ) : (
+            <MobileCardView 
+              items={formatPricingForDisplay().map((item) => ({
+                id: item.countryCode,
+                fields: [
+                  { label: 'Country Code', value: item.countryCode },
+                  { label: 'Country Name', value: item.countryName },
+                  { label: 'Base Price', value: formatPrice(item.basePrice, item.currency) },
+                  { label: 'Our Price', value: formatPrice(item.ourPrice, item.currency) },
+                  { label: 'Last Updated', value: formatDate(item.lastUpdated) }
+                ]
+              }))}
+            />
+          )}
+        </div>
         
         {/* Stats */}
         <div className="mt-4 p-3 bg-blue-50 rounded-md text-sm text-blue-700">
-          Showing {formatPricingForDisplay().length} countries {searchQuery && `matching "${searchQuery}"`}
-          {pricingData?.data && ` out of ${Object.keys(pricingData.data).length} total countries`}
+          <p className="text-center md:text-left">
+            Showing {formatPricingForDisplay().length} countries {searchQuery && `matching "${searchQuery}"`}
+            {pricingData?.data && ` out of ${Object.keys(pricingData.data).length} total countries`}
+          </p>
         </div>
       </div>
     </div>

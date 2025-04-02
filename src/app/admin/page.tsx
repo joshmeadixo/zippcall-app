@@ -56,32 +56,38 @@ export default async function AdminDashboard() {
 
   return (
     <AdminAccessOnly>
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+      <div className="container mx-auto px-4 py-6 sm:py-8">
+        <header className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Admin Dashboard</h1>
           <p className="mt-2 text-gray-600">Manage your Zipp Call application</p>
-        </div>
+        </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <TotalCallDurationWidget />
-          <TotalUsersWidget />
-        </div>
+        {/* Summary Widgets Section */}
+        <section className="mb-6 sm:mb-8">
+          <h2 className="text-lg font-semibold text-gray-700 mb-3 sr-only">Summary Metrics</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+            <TotalCallDurationWidget />
+            <TotalUsersWidget />
+          </div>
+        </section>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {adminModules.map((module) => (
-            <Link
-              key={module.title}
-              href={module.href}
-              className="block p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300"
-            >
-              <div className="flex flex-col items-center text-center">
-                <div className="mb-4">{module.icon}</div>
-                <h3 className="text-lg font-semibold mb-2">{module.title}</h3>
-                <p className="text-sm text-gray-600">{module.description}</p>
-              </div>
-            </Link>
-          ))}
-        </div>
+        {/* Admin Modules Navigation */}
+        <section>
+          <h2 className="text-lg font-semibold text-gray-700 mb-3">Admin Modules</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            {adminModules.map((module) => (
+              <Link
+                key={module.title}
+                href={module.href}
+                className="flex flex-col items-center p-4 sm:p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300"
+              >
+                <div className="mb-3 sm:mb-4">{module.icon}</div>
+                <h3 className="text-lg font-semibold mb-1 sm:mb-2 text-center">{module.title}</h3>
+                <p className="text-sm text-gray-600 text-center">{module.description}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
       </div>
     </AdminAccessOnly>
   );

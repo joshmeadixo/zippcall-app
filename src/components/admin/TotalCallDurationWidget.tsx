@@ -28,16 +28,18 @@ export default async function TotalCallDurationWidget() {
   const formattedDuration = formatDuration(totalDuration);
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow">
-      <h3 className="text-lg font-semibold text-gray-700 mb-2">
+    <div className="bg-white p-4 sm:p-5 rounded-lg shadow flex flex-col h-full">
+      <h3 className="text-base sm:text-lg font-semibold text-gray-700 mb-2">
         Total Call Duration
       </h3>
-      <p className="text-3xl font-bold text-gray-900">
-        {formattedDuration}
-      </p>
-      <p className="text-sm text-gray-500">
-        (HH:MM:SS)
-      </p>
+      <div className="mt-auto">
+        <p className="text-2xl sm:text-3xl font-bold text-gray-900 break-all">
+          {formattedDuration}
+        </p>
+        <p className="text-xs sm:text-sm text-gray-500 mt-1">
+          (HH:MM:SS)
+        </p>
+      </div>
     </div>
   );
 } 

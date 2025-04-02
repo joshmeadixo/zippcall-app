@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { AdminUserRecord } from '../actions'; // Use the type from actions
+import MobileCardView from '@/components/admin/MobileCardView';
 
 // State to manage which user is being edited and the new balance value
 interface EditState {
@@ -113,6 +114,59 @@ export default function UserTable({ initialUsers }: UserTableProps) {
     }
   };
 
+  // Generate card items for mobile view
+  const mobileCardItems = users.map(u => ({
+    id: u.uid,
+    fields: [
+      { label: 'Email', value: u.email || 'N/A' },
+      { label: 'Name', value: u.displayName },
+      { 
+        label: 'Balance', 
+        value: editState?.userId === u.uid ? (
+          <input 
+            type="number"
+            value={editState.inputBalance}
+            onChange={handleBalanceInputChange}
+            onKeyDown={(e) => e.key === 'Enter' && handleSaveBalance()}
+            className="w-24 px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+            step="0.01"
+            min="0"
+            autoFocus
+          />
+        ) : (
+          `$${u.balance.toFixed(2)}`
+        )
+      },
+      { label: 'Admin', value: u.isAdmin ? 'Yes' : 'No' },
+      { label: 'Last Login', value: formatDate(u.lastLogin) },
+    ],
+    actions: editState?.userId === u.uid ? (
+      <div className="flex items-center space-x-4">
+        <button
+          onClick={handleSaveBalance}
+          disabled={isUpdating}
+          className="text-green-600 hover:text-green-900 disabled:opacity-50"
+        >
+          {isUpdating ? 'Saving...' : 'Save'}
+        </button>
+        <button
+          onClick={handleCancelEdit}
+          disabled={isUpdating}
+          className="text-gray-600 hover:text-gray-900 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+      </div>
+    ) : (
+      <button
+        onClick={() => handleEditBalanceClick(u)}
+        className="text-indigo-600 hover:text-indigo-900 px-3 py-1 text-sm border border-indigo-200 rounded hover:bg-indigo-50"
+      >
+        Edit Balance
+      </button>
+    )
+  }));
+
   return (
     <>
       {/* Display Update Error */} 
@@ -123,7 +177,8 @@ export default function UserTable({ initialUsers }: UserTableProps) {
          </div>
       )}
 
-      <div className="bg-white shadow-md rounded-lg overflow-x-auto">
+      {/* Desktop version (hidden on small screens) */}
+      <div className="hidden md:block bg-white shadow-md rounded-lg overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -195,6 +250,11 @@ export default function UserTable({ initialUsers }: UserTableProps) {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile version (shown only on small screens) */}
+      <div className="md:hidden">
+        <MobileCardView items={mobileCardItems} />
       </div>
     </>
   );
