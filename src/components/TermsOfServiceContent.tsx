@@ -1,7 +1,7 @@
 export default function TermsOfServiceContent() {
   return (
     <div className="prose prose-lg max-w-none">
-      <p className="text-sm text-gray-500 mb-8">Last Updated: May 5, 2024</p>
+      <p className="text-sm text-gray-500 mb-8">Last Updated: April 2, 2025</p>
       
       <section className="mb-10">
         <h2 className="text-2xl font-bold text-zippcall-blue mb-4">1. Agreement to Terms</h2>
@@ -189,10 +189,7 @@ export default function TermsOfServiceContent() {
         <h2 className="text-2xl font-bold text-zippcall-blue mb-4">18. Contact Us</h2>
         <div className="pl-4 space-y-4">
           <p>
-            If you have any questions about these Terms, please contact us at:
-          </p>
-          <p className="font-medium">
-            Email: <a href="mailto:legal@zippcall.com" className="text-zippcall-blue">legal@zippcall.com</a>
+            If you have any questions about these Terms, please use the contact form on our website.
           </p>
         </div>
       </section>

@@ -1,7 +1,7 @@
 export default function PrivacyPolicyContent() {
   return (
     <div className="prose prose-lg max-w-none">
-      <p className="text-sm text-gray-500 mb-8">Last Updated: May 5, 2024</p>
+      <p className="text-sm text-gray-500 mb-8">Last Updated: April 2, 2025</p>
       
       <section className="mb-10">
         <h2 className="text-2xl font-bold text-zippcall-blue mb-4">1. Introduction</h2>
@@ -146,10 +146,7 @@ export default function PrivacyPolicyContent() {
         <h2 className="text-2xl font-bold text-zippcall-blue mb-4">11. Contact Us</h2>
         <div className="pl-4 space-y-4">
           <p>
-            If you have any questions or concerns about this Privacy Policy, please contact us at:
-          </p>
-          <p className="font-medium">
-            Email: <a href="mailto:privacy@zippcall.com" className="text-zippcall-blue">privacy@zippcall.com</a>
+            If you have any questions or concerns about this Privacy Policy, please use the contact form on our website.
           </p>
         </div>
       </section>
