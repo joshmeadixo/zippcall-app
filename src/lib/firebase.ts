@@ -29,9 +29,17 @@ const actionCodeSettings = {
 
 // Set up auth state observer to create user documents
 auth.onAuthStateChanged(async (user) => {
+  console.log('[FIREBASE AUTH] Auth state changed:', user ? `User ${user.uid} (${user.email})` : 'No user');
+  
   if (user) {
     // Create/update user document in Firestore
-    await ensureUserDocument(user);
+    console.log('[FIREBASE AUTH] Calling ensureUserDocument for user:', user.uid);
+    try {
+      await ensureUserDocument(user);
+      console.log('[FIREBASE AUTH] Successfully processed user document for:', user.uid);
+    } catch (error) {
+      console.error('[FIREBASE AUTH] Error in ensureUserDocument:', error);
+    }
   }
 });
 

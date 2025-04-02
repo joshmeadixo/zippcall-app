@@ -29,6 +29,7 @@
     "firebase-admin": "^13.2.0",
     "google-libphonenumber": "^3.2.40",
     "libphonenumber-js": "^1.12.6",
+    "loops": "^4.1.0",
     "lucide-react": "^0.485.0",
     "next": "15.2.4",
     "next-auth": "^4.24.11",

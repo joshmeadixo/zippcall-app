@@ -14,6 +14,7 @@ import { formatDistanceToNow } from 'date-fns';
 import Footer from '@/components/Footer';
 import AccountDetailsCard from '@/components/AccountDetailsCard';
 import Header from '@/components/Header';
+import SupportCard from '@/components/SupportCard';
 
 // Load Stripe promise outside component to avoid recreating on render
 // Ensure your publishable key is in .env.local as NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
@@ -546,6 +547,9 @@ export default function DashboardAuthOnly() {
             
             {/* Account Details Card - NEW */} 
             <AccountDetailsCard />
+
+            {/* Support Card - NEW */} 
+            <SupportCard />
           </div>
         </div>
       </main>
