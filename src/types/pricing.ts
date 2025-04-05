@@ -27,15 +27,18 @@ export interface FinalPriceData extends TwilioPriceData {
  * Price response for a specific phone number
  */
 export interface PhoneNumberPriceResponse {
-  phoneNumber: string;  // E.164 formatted phone number
-  countryCode: string;  // ISO country code
-  countryName: string;  // Full country name
-  basePrice: number;    // Wholesale price
-  markup: number;       // Markup percentage
-  finalPrice: number;   // Price to charge the customer
-  currency: string;     // Currency code
-  billingIncrement: number; // In seconds
-  isEstimate: boolean;  // If true, this is a country-level estimate
+  phoneNumber: string;       // E.164 number that was looked up
+  countryCode: string;       // ISO country code
+  countryName: string;       // Full country name
+  basePrice: number;         // Base price from Twilio
+  markup: number;            // Markup percentage applied
+  finalPrice: number;        // Final price per minute
+  currency: string;          // Currency (typically USD)
+  billingIncrement: number;  // Billing increment in seconds
+  calculatedCost?: number;   // Optional precalculated total cost
+  duration?: number;         // Optional call duration in seconds
+  isEstimate: boolean;       // Whether this is an estimate or exact
+  isUnsupported?: boolean;   // Whether this country is unsupported by Twilio
 }
 
 /**
@@ -68,4 +71,14 @@ export interface CountryPricingCache {
   version: number;
   lastUpdated: Date;
   data: Record<string, TwilioPriceData>;
-} 
+}
+
+/**
+ * List of countries that are not supported by Twilio for outgoing calls
+ * ISO country codes (e.g., "CN" for China)
+ */
+export const UNSUPPORTED_COUNTRIES: string[] = [
+  "CN", // China
+  "IR", // Iran
+  // Add other unsupported countries as needed
+]; 

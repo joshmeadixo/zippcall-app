@@ -69,6 +69,11 @@ export default function CallPricing({
       return;
     }
     
+    // If this is an unsupported country, don't calculate cost
+    if (pricing.isUnsupported) {
+      return;
+    }
+
     // If call duration is provided directly, use it
     if (callDuration !== undefined) {
       setDurationSeconds(callDuration);
@@ -115,6 +120,16 @@ export default function CallPricing({
   // --- Helper to render Rate Info --- 
   const renderRateInfo = () => {
     if (!pricing) return null;
+
+    // Display message for unsupported countries
+    if (pricing.isUnsupported) {
+      return (
+        <div className="text-sm text-orange-600">
+          ZippCall does not support calls to {pricing.countryName} yet, we are working to add this soon
+        </div>
+      );
+    }
+
     return (
       <div className="text-sm text-gray-600">
         Rate: <span className="font-semibold">{formatPrice(pricing.finalPrice)}</span> / min
@@ -198,10 +213,16 @@ export default function CallPricing({
       {isCallActive ? (
         // Check for pricing before accessing properties
         pricing ? (
-          <span>
-            Cost: <span className="font-semibold">{formatPrice(currentCost)}</span> 
-            ({formatPrice(pricing.finalPrice)}/min, {formatDuration(durationSeconds)})
-          </span>
+          pricing.isUnsupported ? (
+            <span className="text-orange-600">
+              Calling to {pricing.countryName} is not supported yet
+            </span>
+          ) : (
+            <span>
+              Cost: <span className="font-semibold">{formatPrice(currentCost)}</span> 
+              ({formatPrice(pricing.finalPrice)}/min, {formatDuration(durationSeconds)})
+            </span>
+          )
         ) : (
           // Fallback if pricing is unexpectedly null during active call
           <span>Calculating cost...</span>

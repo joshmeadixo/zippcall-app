@@ -1,4 +1,4 @@
-import { FinalPriceData, MarkupConfig, PhoneNumberPriceResponse, TwilioPriceData } from '@/types/pricing';
+import { FinalPriceData, MarkupConfig, PhoneNumberPriceResponse, TwilioPriceData, UNSUPPORTED_COUNTRIES } from '@/types/pricing';
 import { getMarkupConfig, getCountryPricing } from './pricing-db';
 import { parsePhoneNumber } from 'libphonenumber-js';
 
@@ -76,6 +76,22 @@ export async function getPriceForPhoneNumber(
     }
     
     const countryCode = parsedNumber.country;
+    
+    // Check if this country is in the unsupported list
+    if (UNSUPPORTED_COUNTRIES.includes(countryCode)) {
+      return {
+        phoneNumber,
+        countryCode,
+        countryName: parsedNumber.country ? new Intl.DisplayNames(['en'], { type: 'region' }).of(parsedNumber.country) || parsedNumber.country : 'Unknown',
+        basePrice: 0,
+        markup: 0,
+        finalPrice: 0,
+        currency: 'USD',
+        billingIncrement: 60,
+        isEstimate: false,
+        isUnsupported: true
+      };
+    }
     
     // Get base price for this country
     const basePriceData = await getCountryPriceData(countryCode);
@@ -183,6 +199,25 @@ export async function getPricesForCountries(
     // Create an array of promises
     const promises = batch.map(async (countryCode) => {
       try {
+        // Check if this country is in the unsupported list
+        if (UNSUPPORTED_COUNTRIES.includes(countryCode)) {
+          return {
+            countryCode,
+            result: {
+              phoneNumber: '',
+              countryCode,
+              countryName: new Intl.DisplayNames(['en'], { type: 'region' }).of(countryCode) || countryCode,
+              basePrice: 0,
+              markup: 0,
+              finalPrice: 0,
+              currency: 'USD',
+              billingIncrement: 60,
+              isEstimate: true,
+              isUnsupported: true
+            } as PhoneNumberPriceResponse
+          };
+        }
+        
         const basePriceData = await getCountryPriceData(countryCode);
         
         if (!basePriceData) {

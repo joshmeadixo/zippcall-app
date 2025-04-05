@@ -15,6 +15,7 @@ import { Country, getCountryCallingCode } from 'react-phone-number-input';
 import CallPricing from './CallPricing';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { UNSUPPORTED_COUNTRIES } from '@/types/pricing';
 
 interface VoiceCallProps {
   title?: string;
@@ -855,10 +856,11 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
                     !nationalPhoneNumber.trim() || 
                     !isPhoneNumberValid ||
                     isLoadingBalance ||
-                    (userBalance !== null && userBalance <= MIN_BALANCE_THRESHOLD)
+                    (userBalance !== null && userBalance <= MIN_BALANCE_THRESHOLD) ||
+                    (selectedCountry && UNSUPPORTED_COUNTRIES.includes(selectedCountry))
                   }
                   className={`w-full mt-4 py-3 px-4 rounded-lg text-white font-semibold flex items-center justify-center transition-colors ${ 
-                    (!isReady || isConnecting || isConnected || !selectedCountry || !nationalPhoneNumber.trim() || !isPhoneNumberValid || isLoadingBalance || (userBalance !== null && userBalance <= MIN_BALANCE_THRESHOLD))
+                    (!isReady || isConnecting || isConnected || !selectedCountry || !nationalPhoneNumber.trim() || !isPhoneNumberValid || isLoadingBalance || (userBalance !== null && userBalance <= MIN_BALANCE_THRESHOLD) || (selectedCountry && UNSUPPORTED_COUNTRIES.includes(selectedCountry)))
                       ? 'bg-gray-400 cursor-not-allowed' 
                       : 'bg-green-500 hover:bg-green-600'
                   }`}
@@ -867,6 +869,7 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
                     isConnecting ? "Connecting..." : 
                     isConnected ? "Call in progress" : 
                     !selectedCountry ? "Select a country" : 
+                    (selectedCountry && UNSUPPORTED_COUNTRIES.includes(selectedCountry)) ? `Calls to ${new Intl.DisplayNames(['en'], { type: 'region' }).of(selectedCountry) || selectedCountry} are not supported yet` :
                     !nationalPhoneNumber.trim() ? "Enter a phone number" : 
                     !isPhoneNumberValid ? "Invalid phone number" : 
                     isLoadingBalance ? "Checking balance..." : 
