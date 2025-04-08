@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 // Add Firebase Admin imports
 import { initializeFirebaseAdmin, getAdminFirestore } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+// Import pricing functions
+import { getPriceForPhoneNumber, calculateCallCost } from '@/lib/pricing/pricing-engine';
 
 // Ensure Firebase Admin is initialized (idempotent)
 initializeFirebaseAdmin();
@@ -85,12 +87,37 @@ export async function POST(req: NextRequest) {
                 break;
         }
 
+        // --- Add Cost Calculation Logic --- 
+        let finalCost = 0;
+        // Only calculate cost if the call was answered and had duration
+        if (appStatus === 'answered' && durationToSave > 0) {
+            try {
+                const pricingInfo = await getPriceForPhoneNumber(to);
+                if (pricingInfo && !pricingInfo.isUnsupported) {
+                    finalCost = calculateCallCost(
+                        pricingInfo.finalPrice, // Use the calculated final price from pricing engine
+                        durationToSave,
+                        pricingInfo.billingIncrement
+                    );
+                    console.log(`[Public Callback] Calculated cost for ${durationToSave}s to ${to}: ${finalCost}`);
+                } else {
+                    console.warn(`[Public Callback] Could not get pricing or country unsupported for ${to}. Setting cost to 0 for CallSid: ${callSid}`);
+                }
+            } catch (pricingError) {
+                 console.error(`[Public Callback] Error fetching or calculating pricing for ${to}:`, pricingError);
+                 // Keep cost at 0 if pricing fails
+            }
+        } else {
+             console.log(`[Public Callback] Call status is '${appStatus}' or duration is 0. Setting cost to 0 for CallSid: ${callSid}`);
+        }
+        // --- End Cost Calculation Logic --- 
+
         const callDataToUpdate = {
             userId: userId,
             callSid: callSid,
             status: appStatus, // Use our mapped status
             duration: durationToSave,
-            cost: 0, // Keep cost 0 for now
+            cost: finalCost, // Use the calculated cost
             phoneNumber: to,
             callerId: from,
             direction: 'outgoing',
@@ -102,7 +129,7 @@ export async function POST(req: NextRequest) {
 
         // Save to Firestore
         await callHistoryRef.set(callDataToUpdate, { merge: true });
-        console.log(`[Public Callback] Recorded call history for CallSid: ${callSid}, UserId: ${userId}, Status: ${appStatus}`);
+        console.log(`[Public Callback] Recorded call history for CallSid: ${callSid}, UserId: ${userId}, Status: ${appStatus}, Cost: ${finalCost}`);
 
         // --- End Firestore Logic --- 
         

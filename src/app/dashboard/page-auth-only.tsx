@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import VoiceCall, { VoiceCallHandle } from '@/components/VoiceCall';
 import CallHistory, { CallHistoryEntry } from '@/components/CallHistory';
 import { getUserCallHistory, deleteCallHistoryEntry } from '@/lib/call-history-db';
-import { doc, onSnapshot, collection, query, orderBy, limit, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, orderBy, limit, Timestamp, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AddFundsModal from '@/components/AddFundsModal';
 import { loadStripe } from '@stripe/stripe-js';
@@ -76,28 +76,57 @@ export default function DashboardAuthOnly() {
     }
   }, [user, loading, router]);
 
-  // Load call history from Firestore when user is authenticated
+  // --- Listener for Call History --- 
   useEffect(() => {
-    const loadCallHistory = async () => {
-      if (user && user.uid) {
-        try {
-          setIsLoadingHistory(true);
-          console.log(`[Dashboard] Loading call history for user ${user.uid}`);
-          const history = await getUserCallHistory(user.uid);
-          setCallHistory(history);
-          console.log(`[Dashboard] Loaded ${history.length} call history entries from Firestore`);
-        } catch (error) {
-          console.error('[Dashboard] Error loading call history:', error);
-        } finally {
-          setIsLoadingHistory(false);
-        }
+    if (!user || !user.uid) {
+      setCallHistory([]);
+      return; // No user, clear history
+    }
+
+    console.log(`[Dashboard] Setting up call history listener for user ${user.uid}`);
+    
+    const callHistoryQuery = query(
+      collection(db, 'callHistory'),
+      where('userId', '==', user.uid),
+      orderBy('timestamp', 'desc'), // Order by call time
+      limit(50) // Limit the number of initial records
+    );
+
+    const unsubscribe = onSnapshot(callHistoryQuery, 
+      (snapshot) => {
+        const fetchedHistory: CallHistoryEntry[] = snapshot.docs.map(doc => {
+          const data = doc.data();
+          // Convert Firestore Timestamp back to number (milliseconds)
+          const timestamp = data.timestamp instanceof Timestamp
+            ? data.timestamp.toMillis()
+            : Date.now(); // Fallback if timestamp is missing/not a Timestamp
+          
+          return {
+            id: doc.id,
+            phoneNumber: data.phoneNumber || 'N/A',
+            timestamp,
+            duration: data.duration || 0,
+            direction: data.direction || 'unknown',
+            status: data.status || 'unknown',
+            cost: data.cost !== undefined ? data.cost : 0 // Handle cost potentially being undefined
+          };
+        });
+        setCallHistory(fetchedHistory);
+        console.log(`[Dashboard] Call history updated via listener: ${fetchedHistory.length} entries`);
+      },
+      (error) => {
+        console.error('[Dashboard] Error listening to call history:', error);
+        setCallHistory([]); // Clear history on error
       }
+    );
+
+    // Cleanup function to unsubscribe when component unmounts or user changes
+    return () => {
+      console.log(`[Dashboard] Unsubscribing call history listener for user ${user.uid}`);
+      unsubscribe();
     };
 
-    if (user) {
-      loadCallHistory();
-    }
-  }, [user]);
+  }, [user]); // Re-run listener setup if user changes
 
   // Fetch user balance from Firestore using a real-time listener
   useEffect(() => {
