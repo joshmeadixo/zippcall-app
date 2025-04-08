@@ -87,25 +87,32 @@ export default function DashboardAuthOnly() {
     const callHistoryQuery = query(
       collection(db, 'callHistory'),
       where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc'), // Order by creation time for consistency
+      orderBy('timestamp', 'desc'), 
       limit(50) // Limit the number of initial records
     );
 
     const unsubscribe = onSnapshot(callHistoryQuery, 
       (snapshot) => {
+        if (snapshot.empty) {
+            console.log(`[Dashboard] Call history snapshot is EMPTY for user ${user.uid} (ordered by timestamp).`);
+            setCallHistory([]); // Explicitly clear state
+            return;
+        }
+        console.log(`[Dashboard] Received call history snapshot (ordered by timestamp) with ${snapshot.size} docs.`);
+        
         const mappedHistory = snapshot.docs.map(doc => {
           const data = doc.data();
-          // Exclude soft-deleted records client-side
+          console.log(`[Dashboard] Processing doc ${doc.id}: deleted=${data.deleted}, timestamp=${data.timestamp?.toDate()}`, data);
+          
           if (data.deleted === true) {
+            console.log(`[Dashboard] Filtering out deleted doc ${doc.id}`);
             return null; // Mark for filtering
           }
           
-          // Convert Firestore Timestamp back to number (milliseconds)
           const timestamp = data.timestamp instanceof Timestamp
             ? data.timestamp.toMillis()
             : Date.now(); 
           
-          // Construct the entry, ensuring cost is handled (optional in type)
           const entry: CallHistoryEntry = {
             id: doc.id,
             phoneNumber: data.phoneNumber || 'N/A',
@@ -113,17 +120,16 @@ export default function DashboardAuthOnly() {
             duration: data.duration || 0,
             direction: data.direction || 'unknown',
             status: data.status || 'unknown',
-            // Assign cost only if it exists and is a number, otherwise undefined or 0
             cost: typeof data.cost === 'number' ? data.cost : undefined
           };
           return entry;
         });
         
-        // Filter out the null entries (deleted records)
         const filteredHistory = mappedHistory.filter((entry): entry is CallHistoryEntry => entry !== null);
-          
+        
+        console.log(`[Dashboard] Mapped ${mappedHistory.length} docs, Filtered ${filteredHistory.length} non-deleted entries.`);
         setCallHistory(filteredHistory);
-        console.log(`[Dashboard] Call history updated via listener: ${filteredHistory.length} entries`);
+        console.log(`[Dashboard] Call history state updated with ${filteredHistory.length} entries.`);
       },
       (error) => {
         console.error('[Dashboard] Error listening to call history:', error);
