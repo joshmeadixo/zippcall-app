@@ -45,21 +45,17 @@ export async function POST(request: NextRequest) {
       } else {
         // Otherwise, we're making a call to a regular phone number
         // Use provided caller ID or fall back to default
-        // --- Modified: Fixed statusCallback attributes to dial ---
-        // In the Twilio TwiML Node SDK, statusCallback attributes need to be set
-        // after creating the Dial object, not in the constructor
-        const dial = twiml.dial();
-        
-        // Set callerId
-        if (callerId) {
-          dial.setAttribute('callerId', callerId);
-        }
-        
-        // Set status callback attributes
-        dial.setAttribute('statusCallback', statusCallbackUrl);
-        dial.setAttribute('statusCallbackMethod', 'POST');
-        dial.setAttribute('statusCallbackEvent', 'completed');
-        
+        // --- Reverted: Pass attributes directly to dial constructor ---
+        // Although TypeScript types might complain, the runtime library expects these attributes
+        // directly in the constructor object for the Dial verb.
+        // Use type assertion to bypass incorrect type definitions.
+        const dial = twiml.dial({
+            callerId: callerId,
+            statusCallback: statusCallbackUrl,
+            statusCallbackMethod: 'POST',
+            statusCallbackEvent: 'completed' // Ensure this is a string, not an array
+        } as any);
+
         // Ensure the phone number is properly formatted without leading spaces
         const formattedNumber = to.trim();
         dial.number(formattedNumber);
