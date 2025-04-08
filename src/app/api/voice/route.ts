@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
         // Although TypeScript types might complain, the runtime library expects these attributes
         // directly in the constructor object for the Dial verb.
         // Use type assertion to bypass incorrect type definitions.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const dial = twiml.dial({
             callerId: callerId,
             statusCallback: statusCallbackUrl,
