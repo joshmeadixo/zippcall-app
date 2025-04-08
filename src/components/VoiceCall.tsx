@@ -101,6 +101,7 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
     setValidatedE164Number('');
     setNationalPhoneNumber('');
     setCurrentCallCost(0);
+    setCallStartTime(null); // Explicitly reset timer state on hangup
   }, [hangupCall]);
 
   // Fetch user balance from Firestore using a real-time listener
@@ -161,12 +162,11 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
     }
   }, [call, isConnected, isConnecting]);
 
-  // Monitor connection state changes to detect call start/end
+  // Monitor connection state changes to detect call start/end for UI purposes
   useEffect(() => {
     // Detect call start
     if (isConnected && !callStartTime) {
-      isCallEndingRef.current = false; // <-- Reset the flag on new call start
-      console.log('[VoiceCall] Call connected, reset isCallEndingRef');
+      isCallEndingRef.current = false; 
       console.log('[VoiceCall] Call connected, recording start time');
       setCallStartTime(Date.now());
       
@@ -180,9 +180,12 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
         setActiveCallNumber(formattedNumber);
       }
     } 
-    // --- REMOVED --- : Faulty call end processing logic 
-    // This is now handled by the /api/twilio-status-callback webhook
-    // else if (!isConnected && !isConnecting && callStartTime) { ... removed block ... }
+    // Detect call end (for UI reset, not final processing)
+    else if (!isConnected && callStartTime) {
+       console.log('[VoiceCall] Call disconnected, resetting UI timer state.');
+       setCallStartTime(null); // Reset timer state when connection drops
+       // Note: Final call processing/logging happens via webhook now.
+    }
   }, [isConnected, callStartTime, validatedE164Number, selectedCountry, nationalPhoneNumber]);
 
   // Check for initialization taking too long
