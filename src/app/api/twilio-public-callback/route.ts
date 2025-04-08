@@ -4,32 +4,69 @@ import { initializeFirebaseAdmin, getAdminFirestore } from '@/lib/firebase-admin
 import { FieldValue } from 'firebase-admin/firestore';
 // Import pricing functions
 import { getPriceForPhoneNumber, calculateCallCost } from '@/lib/pricing/pricing-engine';
+// Import twilio library for validation
+import twilio from 'twilio';
 
 // Ensure Firebase Admin is initialized (idempotent)
 initializeFirebaseAdmin();
 
+// Get Twilio Auth Token from environment variables
+const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
+
 // ABSOLUTELY NO AUTHENTICATION - PUBLIC ENDPOINT FOR TESTING
 export async function POST(req: NextRequest) {
-    // Log immediately
     console.log('!!PUBLIC ENDPOINT!! Received Twilio callback request');
+
+    // --- Twilio Request Validation --- 
+    const signature = req.headers.get('x-twilio-signature');
+    const url = req.url; // Use the full URL from the request
+    const rawBody = await req.text(); // Get raw body BEFORE parsing
+
+    // Reconstruct the body as a Record<string, string> for validation
+    // Twilio validation needs the params as they were sent
+    const params = new URLSearchParams(rawBody);
+    const bodyForValidation: Record<string, string> = {};
+    params.forEach((value, key) => {
+        bodyForValidation[key] = value;
+    });
+
+    if (!twilioAuthToken) {
+        console.error('[Public Callback] CRITICAL: TWILIO_AUTH_TOKEN not set. Cannot validate request.');
+        // Return 500 as this is a server configuration issue
+        return new NextResponse('Server Configuration Error', { status: 500 });
+    } 
+    if (!signature) {
+        console.warn('[Public Callback] WARNING: Missing X-Twilio-Signature. Rejecting request.');
+        return new NextResponse('Missing Signature', { status: 400 });
+    }
+
+    const isValid = twilio.validateRequest(
+        twilioAuthToken,
+        signature,
+        url,
+        bodyForValidation // Use the reconstructed body
+    );
+
+    if (!isValid) {
+        console.warn('[Public Callback] WARNING: Invalid Twilio signature. Rejecting request.');
+        return new NextResponse('Invalid Signature', { status: 403 }); // Forbidden
+    }
+    console.log('[Public Callback] Twilio signature validated successfully.');
+    // --- End Twilio Request Validation ---
     
     try {
-        // Get the raw request body
-        const rawBody = await req.text();
-        
-        // Parse the form data
-        const params = new URLSearchParams(rawBody);
-        const body: Record<string, string> = {};
-        params.forEach((value, key) => {
-            body[key] = value;
-        });
-        
-        // Log all the data we received
+        // NOTE: We already read the rawBody for validation, so we use it here.
+        // No need to call req.text() again.
+        // We also already parsed it into `params` and `bodyForValidation`.
+        // Let's use `bodyForValidation` as `body` from now on.
+        const body = bodyForValidation;
+
+        // Log all the data we received (using the validated body)
         console.log('PUBLIC CALLBACK Body:', body);
         console.log('PUBLIC CALLBACK Headers:', Object.fromEntries(req.headers.entries()));
-        console.log('PUBLIC CALLBACK URL:', req.url);
+        console.log('PUBLIC CALLBACK URL:', url); // Use the url variable
         
-        // Extract useful data
+        // Extract useful data from the validated body
         const callSid = body.CallSid;
         const callStatus = body.CallStatus;
         const callDurationStr = body.CallDuration; // Duration in seconds (string)
@@ -37,9 +74,8 @@ export async function POST(req: NextRequest) {
         const from = body.From; // The caller ID used
         const accountSid = body.AccountSid;
 
-        // Get UserId from query param
-        const url = new URL(req.url);
-        const userId = url.searchParams.get('UserId');
+        // Get UserId from query param using the validated url
+        const userId = new URL(url).searchParams.get('UserId');
         
         console.log(`PUBLIC CALLBACK Processing: CallSid=${callSid}, Status=${callStatus}, Duration=${callDurationStr}s, UserId=${userId}`);
 
@@ -141,21 +177,39 @@ export async function POST(req: NextRequest) {
                     }
                     const currentBalance = userDoc.data()?.balance || 0;
 
+                    // --- Idempotency Check --- 
+                    const existingCallHistoryDoc = await transaction.get(callHistoryRef);
+                    const existingCallData = existingCallHistoryDoc.exists ? existingCallHistoryDoc.data() : null;
+                    
+                    // Define final statuses from Twilio
+                    const finalTwilioStatuses = ['completed', 'busy', 'failed', 'no-answer', 'canceled'];
+                    const isCurrentUpdateFinal = finalTwilioStatuses.includes(callStatus);
+                    const isExistingRecordFinal = existingCallData && finalTwilioStatuses.includes(existingCallData.twilioStatus);
+                    
+                    // If this is a final status update AND a final status has already been recorded for this call, skip balance deduction.
+                    if (isCurrentUpdateFinal && isExistingRecordFinal) {
+                        console.warn(`[Public Callback] Idempotency: Final status (${callStatus}) for CallSid ${callSid} already processed (existing: ${existingCallData?.twilioStatus}). Skipping balance deduction.`);
+                        // We still need to update the history record itself within the transaction
+                        transaction.set(callHistoryRef, callDataToUpdate, { merge: true }); 
+                        return currentBalance; // Return current balance as no deduction happened
+                    }
+                    // --- End Idempotency Check --- 
+
                     // Check for sufficient funds (add tolerance for floating point)
                     const tolerance = 0.0001;
                     let insufficientFunds = false;
                     if (currentBalance < finalCost - tolerance) {
                         console.warn(`[Public Callback] Transaction: User ${userId} has insufficient funds (${currentBalance}) for call cost (${finalCost}). Balance will not be deducted.`);
                         insufficientFunds = true;
-                        // We still record the call with its cost, just don't deduct
                     }
 
                     // Always update Call History within the transaction
+                    // (This happens after the idempotency check returns if needed)
                     transaction.set(callHistoryRef, callDataToUpdate, { merge: true }); 
                     console.log(`[Public Callback] Transaction: Updated call history for ${callSid}.`);
 
                     let deductedAmount = 0;
-                    // Update Balance & create transaction record ONLY if sufficient funds
+                    // Update Balance & create transaction record ONLY if sufficient funds AND idempotency check passed
                     if (!insufficientFunds) {
                         transaction.update(userRef, {
                             balance: FieldValue.increment(-finalCost)
@@ -164,33 +218,44 @@ export async function POST(req: NextRequest) {
                         console.log(`[Public Callback] Transaction: Decremented balance by ${finalCost} for user ${userId}.`);
                         
                         // Create a transaction record for the deduction
-                        const transactionRef = userRef.collection('transactions').doc(); // Auto-generate ID
+                        const transactionRef = userRef.collection('transactions').doc(); 
                         transaction.set(transactionRef, {
                             type: 'call',
                             amount: -finalCost,
                             currency: 'usd',
                             status: 'completed',
-                            source: 'system', // Indicates it came from the system (call processing)
+                            source: 'system',
                             callId: callSid,
-                            phoneNumber: to, // Store the called number
-                            durationSeconds: durationToSave, // Store the duration
-                            createdAt: FieldValue.serverTimestamp() // Use server time
+                            phoneNumber: to,
+                            durationSeconds: durationToSave,
+                            createdAt: FieldValue.serverTimestamp()
                         });
                          console.log(`[Public Callback] Transaction: Created transaction record for call ${callSid}.`);
                     } else {
-                        // If funds are insufficient, we already logged the warning.
-                        // Call history is still saved outside this condition if cost > 0.
+                         // Insufficient funds case handled above
                     }
 
-                    // Return the potentially updated balance (or current if no deduction)
                     return currentBalance - deductedAmount; 
                 });
                 console.log(`[Public Callback] Transaction successful for CallSid: ${callSid}. User ${userId} new balance approx: ${newBalance}`);
             } else {
-                // If cost is 0, just record the call history directly without a transaction
+                // If cost is 0, just record the call history directly. Idempotency still matters for the record itself.
                 console.log(`[Public Callback] Cost is 0 for CallSid: ${callSid}. Recording history directly.`);
-                await callHistoryRef.set(callDataToUpdate, { merge: true });
-                console.log(`[Public Callback] Recorded call history for CallSid: ${callSid} (Cost 0).`);
+                 // --- Idempotency Check (for 0 cost calls) ---
+                 // Check if a final status update already exists before overwriting.
+                 const existingCallHistoryDoc = await callHistoryRef.get(); // Read outside transaction
+                 const existingCallData = existingCallHistoryDoc.exists ? existingCallHistoryDoc.data() : null;
+                 const finalTwilioStatuses = ['completed', 'busy', 'failed', 'no-answer', 'canceled'];
+                 const isCurrentUpdateFinal = finalTwilioStatuses.includes(callStatus);
+                 const isExistingRecordFinal = existingCallData && finalTwilioStatuses.includes(existingCallData.twilioStatus);
+
+                 if (isCurrentUpdateFinal && isExistingRecordFinal) {
+                      console.warn(`[Public Callback] Idempotency (Cost 0): Final status (${callStatus}) for CallSid ${callSid} already processed (existing: ${existingCallData?.twilioStatus}). Skipping non-transactional update.`);
+                 } else {
+                      await callHistoryRef.set(callDataToUpdate, { merge: true });
+                      console.log(`[Public Callback] Recorded call history for CallSid: ${callSid} (Cost 0).`);
+                 }
+                 // --- End Idempotency Check (for 0 cost calls) ---
             }
         } catch (error) {
             console.error(`[Public Callback] Transaction failed for CallSid: ${callSid}, User: ${userId}:`, error);

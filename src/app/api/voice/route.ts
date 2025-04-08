@@ -60,7 +60,8 @@ export async function POST(request: NextRequest) {
         dial.number({
             statusCallback: statusCallbackUrl,
             statusCallbackMethod: 'POST',
-            statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'] // Expanded events
+            // Simplified events: 'answered' for connection, 'completed' for all final states.
+            statusCallbackEvent: ['answered', 'completed'] 
         }, formattedNumber); // Phone number is the second argument
 
         // Log which caller ID is being used
