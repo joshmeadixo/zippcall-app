@@ -30,9 +30,21 @@ export async function POST(req: NextRequest) {
 
     if (!twilioAuthToken) {
         console.error('[Twilio Status Callback] TWILIO_AUTH_TOKEN not set. Cannot validate request.');
+        // Decide if you want to proceed without validation (not recommended) or return error
+        // return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     } else if (!signature) {
         console.warn('[Twilio Status Callback] Missing X-Twilio-Signature. Request cannot be validated.');
+        // In production, you should likely reject requests without a signature
+        // return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
     } else {
+        // --- Added detailed logging for validation --- 
+        console.log('[Twilio Status Callback] Data for validation:');
+        console.log(`[Twilio Status Callback] Auth Token Hint: ${twilioAuthToken ? 'Present' : 'MISSING'}`);
+        console.log(`[Twilio Status Callback] Signature: ${signature}`);
+        console.log(`[Twilio Status Callback] URL for validation: ${url}`);
+        console.log(`[Twilio Status Callback] Params for validation: ${JSON.stringify(body)}`);
+        // -------------------------------------------
+        
         // Validate the request
         const isValid = twilio.validateRequest(
             twilioAuthToken,
