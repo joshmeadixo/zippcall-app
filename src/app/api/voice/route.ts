@@ -45,21 +45,23 @@ export async function POST(request: NextRequest) {
       } else {
         // Otherwise, we're making a call to a regular phone number
         // Use provided caller ID or fall back to default
-        // --- Reverted: Pass attributes directly to dial constructor ---
-        // Although TypeScript types might complain, the runtime library expects these attributes
-        // directly in the constructor object for the Dial verb.
-        // Use @ts-expect-error to bypass incorrect type definitions.
-        // @ts-expect-error - Type definitions for twilio library DialAttributes appear incomplete
-        const dial = twiml.dial({
-            callerId: callerId,
-            statusCallback: statusCallbackUrl,
-            statusCallbackMethod: 'POST',
-            statusCallbackEvent: 'completed'
+        
+        // Create the Dial verb, only passing attributes valid for <Dial> itself
+        const dial = twiml.dial({ 
+            callerId: callerId 
+            // Remove status attributes from here
         });
 
         // Ensure the phone number is properly formatted without leading spaces
         const formattedNumber = to.trim();
-        dial.number(formattedNumber);
+        
+        // Add the <Number> noun with its specific attributes, including status callbacks
+        // Type definitions correctly handle attributes here, but statusCallbackEvent needs to be an array.
+        dial.number({
+            statusCallback: statusCallbackUrl,
+            statusCallbackMethod: 'POST',
+            statusCallbackEvent: ['completed'] // Event should be an array
+        }, formattedNumber); // Phone number is the second argument
 
         // Log which caller ID is being used
         console.log(`[voice] Making outgoing call to ${formattedNumber} with caller ID: ${callerId} for UserId: ${userId}`);
