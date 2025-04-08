@@ -114,7 +114,7 @@ const CallHistory: React.FC<CallHistoryProps> = ({ calls, onCallClick, onDeleteC
                       call.status === 'missed' ? 'text-red-500' : 'text-gray-500'
                     }`}>
                       {call.status === 'missed' 
-                        ? 'Missed' 
+                        ? 'No Answer'
                         : call.status === 'rejected'
                           ? 'Rejected'
                           : `${call.direction === 'incoming' ? 'In' : 'Out'}`
