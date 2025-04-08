@@ -51,7 +51,6 @@ export default function DashboardAuthOnly() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [callHistory, setCallHistory] = useState<CallHistoryEntry[]>([]);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [userBalance, setUserBalance] = useState<number | null>(null);
   const [isLoadingBalance, setIsLoadingBalance] = useState(true);
   const [balanceFetchError, setBalanceFetchError] = useState<string | null>(null);
@@ -495,12 +494,7 @@ export default function DashboardAuthOnly() {
               {/* Collapsible Content */}
               {isCallHistoryOpen && (
                 <div id="call-history-content">
-                  {isLoadingHistory ? (
-                    <div className="text-center py-8">
-                      <div className="animate-spin w-6 h-6 border-t-2 border-l-2 border-blue-500 rounded-full mx-auto"></div>
-                      <p className="text-gray-500 mt-2">Loading your call history...</p>
-                    </div>
-                  ) : callHistory.length > 0 ? (
+                  {callHistory.length > 0 ? (
                     <CallHistory 
                       calls={callHistory}
                       onCallClick={handleHistoryItemClick}
