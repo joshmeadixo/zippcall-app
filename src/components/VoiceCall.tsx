@@ -43,13 +43,14 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
   { 
     title = "Phone", 
     userId = "", 
-    hideHistory = false, 
-    onHistoryUpdate 
+    hideHistory = false 
   }, 
   ref
 ) => {
   const { user } = useAuth();
   const [nationalPhoneNumber, setNationalPhoneNumber] = useState('');
+  // Keep isIncomingCall state but mark it as intentionally unused
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isIncomingCall, setIsIncomingCall] = useState(false);
   const [callStartTime, setCallStartTime] = useState<number | null>(null);
   const [showDialpad, setShowDialpad] = useState(false);
@@ -70,7 +71,8 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
   const [balanceFetchError, setBalanceFetchError] = useState<string | null>(null);
   // Add state to track the real-time cost of the current call
   const [currentCallCost, setCurrentCallCost] = useState(0);
-  // Add a new state variable to store the current active call number
+  // Mark activeCallNumber as intentionally unused or comment why we keep it
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Used for call tracking, needed by Twilio callback
   const [activeCallNumber, setActiveCallNumber] = useState<string>('');
   const isCallEndingRef = useRef(false); // <-- Add the ref flag
 
@@ -178,106 +180,10 @@ const VoiceCall: ForwardRefRenderFunction<VoiceCallHandle, VoiceCallProps> = (
         setActiveCallNumber(formattedNumber);
       }
     } 
-    // Handle call ending
-    else if (!isConnected && !isConnecting && callStartTime) {
-      if (isCallEndingRef.current) { // <-- Check the flag
-        console.log('[VoiceCall] Call end processing already triggered, skipping.');
-        return; 
-      }
-      isCallEndingRef.current = true; // <-- Set the flag
-      console.log('[VoiceCall] Call disconnected, setting isCallEndingRef to true');
-
-      const handleCallEnd = async () => {
-        // Clear any previous recording errors
-        setCallRecordError(null);
-        
-        console.log('[VoiceCall] Call ended, preparing call record.');
-        
-        const duration = Math.floor((Date.now() - callStartTime) / 1000);
-        // Ensure cost is a non-negative number, default to 0 if unavailable
-        const finalCost = (pricingRef.current?.currentCost !== undefined && pricingRef.current.currentCost >= 0) 
-                          ? pricingRef.current.currentCost 
-                          : 0; 
-
-        console.log(`[VoiceCall] Final call cost determined: ${finalCost}`);
-
-        const newCall: CallHistoryEntry = {
-          id: call?.parameters.CallSid || Date.now().toString(), // Use CallSid if available, fallback to timestamp
-          phoneNumber: activeCallNumber || validatedE164Number || 
-            (selectedCountry ? `+${getCountryCallingCode(selectedCountry)}${nationalPhoneNumber}` : nationalPhoneNumber) || 
-            'Unknown', 
-          timestamp: callStartTime, // Keep as JS timestamp for sending to API
-          duration: duration,
-          direction: isIncomingCall ? 'incoming' : 'outgoing',
-          status: 'answered', // Assuming answered if it reached this point
-          cost: finalCost 
-        };
-
-        // Call the API to record the call and deduct cost
-        if (user && newCall.cost !== undefined) {
-          try {
-            console.log(`[VoiceCall] Attempting to record call ${newCall.id} via API for user ${user.uid}`);
-            const token = await user.getIdToken();
-            
-            const response = await fetch('/api/call-cost', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              body: JSON.stringify(newCall),
-            });
-
-            if (!response.ok) {
-              const jsonResponse = await response.json();
-              // If there was an error, throw it for the catch block to handle
-              throw new Error(jsonResponse.error || 'Failed to record call history');
-            }
-
-            // --- Success Case --- 
-            const data = await response.json();
-            console.log(`[VoiceCall] Successfully recorded call ${newCall.id}. New balance: ${data.newBalance}`);
-            
-            // Sync ONLY the new call entry with the parent component
-            if (onHistoryUpdate) {
-              onHistoryUpdate(newCall); // Pass only the single new entry
-            }
-
-          } catch (error: unknown) {
-            console.error('[VoiceCall] Error recording call:', error);
-            const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-            setCallRecordError(errorMessage);
-            // Even if there's an error, we should still reset the call state
-          } finally {
-            setCallStartTime(null);
-            setCurrentCallCost(0); // Reset current call cost
-            // Update pricing ref to ensure it doesn't hold stale values
-            pricingRef.current = {};
-            setActiveCallNumber(''); // Reset active call number at the end of the call
-          }
-        } else if (!user) {
-          console.warn('[VoiceCall] Cannot record call: User not authenticated.');
-          setCallRecordError('Authentication error. Cannot record call.');
-        } else {
-           console.warn(`[VoiceCall] Cannot record call ${newCall.id}: Cost is undefined.`);
-           // Don't set an error message here, as cost might be legitimately unavailable for some calls?
-           // Or potentially set specific error?
-        }
-
-        // Reset call state regardless of API call success/failure
-        setCountrySelected(false);
-        setSelectedCountry(undefined);
-        setNationalPhoneNumber('');
-        setIsPhoneNumberValid(false);
-        setValidatedE164Number('');
-        if (isIncomingCall) {
-          setIsIncomingCall(false);
-        }
-      };
-      
-      handleCallEnd();
-    }
-  }, [isAccepted, isConnected, isConnecting, callStartTime, user, validatedE164Number, selectedCountry, nationalPhoneNumber, isIncomingCall, onHistoryUpdate, call, activeCallNumber]);
+    // --- REMOVED --- : Faulty call end processing logic 
+    // This is now handled by the /api/twilio-status-callback webhook
+    // else if (!isConnected && !isConnecting && callStartTime) { ... removed block ... }
+  }, [isConnected, callStartTime, validatedE164Number, selectedCountry, nationalPhoneNumber]);
 
   // Check for initialization taking too long
   useEffect(() => {

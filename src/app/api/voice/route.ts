@@ -1,31 +1,71 @@
 import { NextRequest, NextResponse } from 'next/server';
 import twilio from 'twilio';
 
+// Determine the base URL for the status callback
+// In production, use VERCEL_URL or a defined NEXT_PUBLIC_APP_URL
+// In development, use a tool like ngrok or localhost if appropriate
+const appBaseUrl = process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
+  : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'; // Fallback for local dev
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const to = formData.get('To') as string;
     // Get caller ID from formData if provided, fall back to environment variable
     const callerId = formData.get('CallerId') as string || process.env.TWILIO_CALLER_ID;
+    // --- Added: Get UserId from the form data ---
+    const userId = formData.get('UserId') as string;
     
     const twiml = new twilio.twiml.VoiceResponse();
 
     // If the request contains a To parameter, we are making an outbound call
     if (to) {
+      // --- Added: Check if UserId was provided ---
+      if (!userId) {
+          console.error('[voice] Missing UserId parameter for outgoing call.');
+          twiml.say('Error: Missing user identification.');
+          twiml.hangup();
+          return new NextResponse(twiml.toString(), {
+            headers: { 'Content-Type': 'text/xml' },
+            status: 400, // Bad Request
+          });
+      }
+
+      // Construct the status callback URL, including the UserId
+      const statusCallbackUrl = `${appBaseUrl}/api/twilio-status-callback?UserId=${encodeURIComponent(userId)}`;
+      console.log(`[voice] Setting statusCallbackUrl: ${statusCallbackUrl}`);
+
       // If the To parameter starts with client:, we're making a client-to-client call
+      // Note: Status callbacks might work differently or not be needed for client calls
       if (to.startsWith('client:')) {
         const clientId = to.replace('client:', '');
+        // Consider if status callbacks are needed/supported for client dialing
         twiml.dial().client(clientId);
       } else {
         // Otherwise, we're making a call to a regular phone number
         // Use provided caller ID or fall back to default
-        const dial = twiml.dial({ callerId });
+        // --- Modified: Fixed statusCallback attributes to dial ---
+        // In the Twilio TwiML Node SDK, statusCallback attributes need to be set
+        // after creating the Dial object, not in the constructor
+        const dial = twiml.dial();
+        
+        // Set callerId
+        if (callerId) {
+          dial.setAttribute('callerId', callerId);
+        }
+        
+        // Set status callback attributes
+        dial.setAttribute('statusCallback', statusCallbackUrl);
+        dial.setAttribute('statusCallbackMethod', 'POST');
+        dial.setAttribute('statusCallbackEvent', 'completed');
+        
         // Ensure the phone number is properly formatted without leading spaces
         const formattedNumber = to.trim();
         dial.number(formattedNumber);
 
         // Log which caller ID is being used
-        console.log(`[voice] Making outgoing call to ${formattedNumber} with caller ID: ${callerId}`);
+        console.log(`[voice] Making outgoing call to ${formattedNumber} with caller ID: ${callerId} for UserId: ${userId}`);
       }
     } else {
       // If there's no To parameter, we're receiving an incoming call

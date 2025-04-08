@@ -599,7 +599,8 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
       const outgoingCall = await device.connect({ 
         params: { 
           To: to,
-          ...(callerId && { CallerId: callerId })
+          ...(callerId && { CallerId: callerId }),
+          UserId: userId 
         } 
       });
       
@@ -637,7 +638,7 @@ export function useTwilioDevice({ userId }: UseTwilioDeviceProps): UseTwilioDevi
       setIsConnecting(false);
       setCall(null);
     }
-  }, [device, isReady]);
+  }, [device, isReady, userId]);
 
   // Hang up the current call
   const hangupCall = useCallback(() => {
