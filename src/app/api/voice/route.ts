@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import twilio from 'twilio';
 
-// Determine the base URL for the status callback
-// In production, use VERCEL_URL or a defined NEXT_PUBLIC_APP_URL
-// In development, use a tool like ngrok or localhost if appropriate
-const appBaseUrl = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'; // Fallback for local dev
+// FIXED: Force using the production URL for callbacks
+// Instead of using VERCEL_URL which gives us preview URLs that have auth requirements
+const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.zippcall.com';
+// Avoid using this: process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : process.env.NEXT_PUBLIC_APP_URL
+
+console.log(`[voice] Using base URL for callbacks: ${appBaseUrl}`);
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
           });
       }
 
-      // CHANGED: Use the public callback endpoint instead of the regular one
+      // Use both callback endpoints to maximize chances of success
       const statusCallbackUrl = `${appBaseUrl}/api/twilio-public-callback?UserId=${encodeURIComponent(userId)}`;
       console.log(`[voice] Setting statusCallbackUrl: ${statusCallbackUrl}`);
 
