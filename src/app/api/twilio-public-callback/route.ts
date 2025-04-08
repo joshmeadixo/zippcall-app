@@ -127,11 +127,88 @@ export async function POST(req: NextRequest) {
             createdAt: FieldValue.serverTimestamp() // Explicitly use createdAt for admin sorting/display
         };
 
-        // Save to Firestore
-        await callHistoryRef.set(callDataToUpdate, { merge: true });
-        console.log(`[Public Callback] Recorded call history for CallSid: ${callSid}, UserId: ${userId}, Status: ${appStatus}, Cost: ${finalCost}`);
+        // --- Database Transaction (Update Call History & User Balance) ---
+        const userRef = db.collection('users').doc(userId);
 
-        // --- End Firestore Logic --- 
+        try {
+            // Only run transaction if cost is greater than 0
+            if (finalCost > 0) {
+                 console.log(`[Public Callback] Attempting transaction for CallSid: ${callSid}, Cost: ${finalCost}`);
+                 const newBalance = await db.runTransaction(async (transaction) => {
+                    const userDoc = await transaction.get(userRef);
+                    if (!userDoc.exists) {
+                        throw new Error(`User ${userId} not found during transaction.`);
+                    }
+                    const currentBalance = userDoc.data()?.balance || 0;
+
+                    // Check for sufficient funds (add tolerance for floating point)
+                    const tolerance = 0.0001;
+                    let insufficientFunds = false;
+                    if (currentBalance < finalCost - tolerance) {
+                        console.warn(`[Public Callback] Transaction: User ${userId} has insufficient funds (${currentBalance}) for call cost (${finalCost}). Balance will not be deducted.`);
+                        insufficientFunds = true;
+                        // We still record the call with its cost, just don't deduct
+                    }
+
+                    // Always update Call History within the transaction
+                    transaction.set(callHistoryRef, callDataToUpdate, { merge: true }); 
+                    console.log(`[Public Callback] Transaction: Updated call history for ${callSid}.`);
+
+                    let deductedAmount = 0;
+                    // Update Balance & create transaction record ONLY if sufficient funds
+                    if (!insufficientFunds) {
+                        transaction.update(userRef, {
+                            balance: FieldValue.increment(-finalCost)
+                        });
+                        deductedAmount = finalCost;
+                        console.log(`[Public Callback] Transaction: Decremented balance by ${finalCost} for user ${userId}.`);
+                        
+                        // Create a transaction record for the deduction
+                        const transactionRef = userRef.collection('transactions').doc(); // Auto-generate ID
+                        transaction.set(transactionRef, {
+                            type: 'call',
+                            amount: -finalCost,
+                            currency: 'usd',
+                            status: 'completed',
+                            source: 'system', // Indicates it came from the system (call processing)
+                            callId: callSid,
+                            phoneNumber: to, // Store the called number
+                            durationSeconds: durationToSave, // Store the duration
+                            createdAt: FieldValue.serverTimestamp() // Use server time
+                        });
+                         console.log(`[Public Callback] Transaction: Created transaction record for call ${callSid}.`);
+                    } else {
+                        // If funds are insufficient, we already logged the warning.
+                        // Call history is still saved outside this condition if cost > 0.
+                    }
+
+                    // Return the potentially updated balance (or current if no deduction)
+                    return currentBalance - deductedAmount; 
+                });
+                console.log(`[Public Callback] Transaction successful for CallSid: ${callSid}. User ${userId} new balance approx: ${newBalance}`);
+            } else {
+                // If cost is 0, just record the call history directly without a transaction
+                console.log(`[Public Callback] Cost is 0 for CallSid: ${callSid}. Recording history directly.`);
+                await callHistoryRef.set(callDataToUpdate, { merge: true });
+                console.log(`[Public Callback] Recorded call history for CallSid: ${callSid} (Cost 0).`);
+            }
+        } catch (error) {
+            console.error(`[Public Callback] Transaction failed for CallSid: ${callSid}, User: ${userId}:`, error);
+            // CRITICAL: If transaction fails, still try to record the call history
+            // outside the transaction, but maybe with an error flag or zero cost? 
+            // For now, we log the error and let the function proceed to return 200 to Twilio.
+            // Consider adding fallback logic here if necessary.
+            try {
+                // Fallback: Attempt to save history even if transaction failed, maybe mark as error?
+                 callDataToUpdate.cost = 0; // Set cost to 0 if transaction failed
+                 callDataToUpdate.status = 'failed'; // Optionally mark status as failed due to transaction error
+                 await callHistoryRef.set(callDataToUpdate, { merge: true });
+                 console.warn(`[Public Callback] Transaction failed, saved call history ${callSid} with 0 cost.`);
+            } catch (fallbackError) {
+                 console.error(`[Public Callback] Fallback save failed for ${callSid} after transaction error:`, fallbackError);
+            }
+        }
+        // --- End Database Transaction --- 
         
         // Always return 200 OK with CORS headers
         return new NextResponse('<Response/>', {

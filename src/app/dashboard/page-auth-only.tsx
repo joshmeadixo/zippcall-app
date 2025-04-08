@@ -87,31 +87,43 @@ export default function DashboardAuthOnly() {
     const callHistoryQuery = query(
       collection(db, 'callHistory'),
       where('userId', '==', user.uid),
-      orderBy('timestamp', 'desc'), // Order by call time
+      orderBy('createdAt', 'desc'), // Order by creation time for consistency
       limit(50) // Limit the number of initial records
     );
 
     const unsubscribe = onSnapshot(callHistoryQuery, 
       (snapshot) => {
-        const fetchedHistory: CallHistoryEntry[] = snapshot.docs.map(doc => {
+        const mappedHistory = snapshot.docs.map(doc => {
           const data = doc.data();
+          // Exclude soft-deleted records client-side
+          if (data.deleted === true) {
+            return null; // Mark for filtering
+          }
+          
           // Convert Firestore Timestamp back to number (milliseconds)
           const timestamp = data.timestamp instanceof Timestamp
             ? data.timestamp.toMillis()
-            : Date.now(); // Fallback if timestamp is missing/not a Timestamp
+            : Date.now(); 
           
-          return {
+          // Construct the entry, ensuring cost is handled (optional in type)
+          const entry: CallHistoryEntry = {
             id: doc.id,
             phoneNumber: data.phoneNumber || 'N/A',
             timestamp,
             duration: data.duration || 0,
             direction: data.direction || 'unknown',
             status: data.status || 'unknown',
-            cost: data.cost !== undefined ? data.cost : 0 // Handle cost potentially being undefined
+            // Assign cost only if it exists and is a number, otherwise undefined or 0
+            cost: typeof data.cost === 'number' ? data.cost : undefined
           };
+          return entry;
         });
-        setCallHistory(fetchedHistory);
-        console.log(`[Dashboard] Call history updated via listener: ${fetchedHistory.length} entries`);
+        
+        // Filter out the null entries (deleted records)
+        const filteredHistory = mappedHistory.filter((entry): entry is CallHistoryEntry => entry !== null);
+          
+        setCallHistory(filteredHistory);
+        console.log(`[Dashboard] Call history updated via listener: ${filteredHistory.length} entries`);
       },
       (error) => {
         console.error('[Dashboard] Error listening to call history:', error);
