@@ -291,14 +291,6 @@ export default function DashboardAuthOnly() {
   // Log auth state just before rendering the main dashboard content
   console.log(`[page-auth-only] Rendering dashboard. Auth Loading: ${loading}, User: ${user ? user.uid : 'null'}`);
 
-  const handleCallHistoryUpdate = (newCall: CallHistoryEntry) => {
-    setCallHistory(prevHistory => {
-      // Prepend the new call and limit the history size
-      const updatedHistory = [newCall, ...prevHistory];
-      return updatedHistory.slice(0, 50); // Keep max 50 entries
-    });
-  };
-
   // Handle click on a call history entry
   const handleHistoryItemClick = (phoneNumber: string) => {
     console.log(`[Dashboard] Call history item clicked: ${phoneNumber}`);
@@ -402,10 +394,9 @@ export default function DashboardAuthOnly() {
           <div className="md:col-span-2"> 
             <VoiceCall 
               ref={voiceCallRef}
-              userId={user.uid} 
+              userId={user.uid}
               title="Phone" 
               hideHistory={true}
-              onHistoryUpdate={handleCallHistoryUpdate}
             />
           </div>
           
