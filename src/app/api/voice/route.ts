@@ -48,14 +48,14 @@ export async function POST(request: NextRequest) {
         // --- Reverted: Pass attributes directly to dial constructor ---
         // Although TypeScript types might complain, the runtime library expects these attributes
         // directly in the constructor object for the Dial verb.
-        // Use type assertion to bypass incorrect type definitions.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // Use @ts-expect-error to bypass incorrect type definitions.
+        // @ts-expect-error - Type definitions for twilio library DialAttributes appear incomplete
         const dial = twiml.dial({
             callerId: callerId,
             statusCallback: statusCallbackUrl,
             statusCallbackMethod: 'POST',
-            statusCallbackEvent: 'completed' // Ensure this is a string, not an array
-        } as any);
+            statusCallbackEvent: 'completed'
+        });
 
         // Ensure the phone number is properly formatted without leading spaces
         const formattedNumber = to.trim();
