@@ -94,10 +94,10 @@ export async function POST(req: NextRequest) {
             phoneNumber: to,
             callerId: from,
             direction: 'outgoing',
-            timestamp: FieldValue.serverTimestamp(), // Use server timestamp for creation/update time
+            timestamp: FieldValue.serverTimestamp(), // Use server timestamp for the event time
             twilioStatus: callStatus, // Store the original Twilio status
             accountSid: accountSid,
-            processedAt: FieldValue.serverTimestamp() // Record processing time
+            createdAt: FieldValue.serverTimestamp() // Explicitly use createdAt for admin sorting/display
         };
 
         // Save to Firestore
