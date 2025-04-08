@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
           });
       }
 
-      // Construct the status callback URL, including the UserId
-      const statusCallbackUrl = `${appBaseUrl}/api/twilio-status-callback?UserId=${encodeURIComponent(userId)}`;
+      // CHANGED: Use the public callback endpoint instead of the regular one
+      const statusCallbackUrl = `${appBaseUrl}/api/twilio-public-callback?UserId=${encodeURIComponent(userId)}`;
       console.log(`[voice] Setting statusCallbackUrl: ${statusCallbackUrl}`);
 
       // If the To parameter starts with client:, we're making a client-to-client call
