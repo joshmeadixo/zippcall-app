@@ -1,15 +1,39 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { CountryPricingCache, TwilioPriceData } from '@/types/pricing';
-import { getCountryPricing } from '@/lib/pricing/pricing-db';
+import React, { useState, useEffect, useCallback } from 'react';
+import { CountryPricingCache, TwilioPriceData, UNSUPPORTED_COUNTRIES } from '@/types/pricing';
+import { getCountryPricing } from '@/lib/pricing/pricing-db-client';
 import { formatPrice } from '@/lib/pricing/pricing-engine';
 import MobileCardView from '@/components/admin/MobileCardView';
+import { Timestamp } from 'firebase/firestore';
 
 interface PricingDashboardProps {
   pricingData: Record<string, TwilioPriceData>;
   topWidget?: React.ReactNode;
 }
+
+// Type guard for Firestore Timestamp objects (Client SDK)
+function isFirestoreTimestamp(value: unknown): value is Timestamp {
+  return value instanceof Timestamp;
+}
+
+// Helper function to format date
+const formatDate = (dateInput: Date | string | null | undefined): string => {
+  if (!dateInput) return 'N/A';
+  try {
+    // Attempt to create a date object, whether from Date, Timestamp, or string
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+    // Check if date is valid after creation/conversion
+    if (isNaN(date.getTime())) return 'Invalid Date'; 
+    return date.toLocaleDateString(undefined, { 
+      year: 'numeric', month: 'short', day: 'numeric', 
+      hour: '2-digit', minute: '2-digit' 
+    });
+  } catch (error) {
+    console.error("Error formatting date:", dateInput, error);
+    return 'Error';
+  }
+};
 
 export default function PricingDashboard({ pricingData: initialPricingData, topWidget }: PricingDashboardProps) {
   const [pricingData, setPricingData] = useState<CountryPricingCache | null>(null);
@@ -18,6 +42,7 @@ export default function PricingDashboard({ pricingData: initialPricingData, topW
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortField, setSortField] = useState<string>('countryName');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [showZeroPriceOnly, setShowZeroPriceOnly] = useState<boolean>(false);
   
   useEffect(() => {
     // If initialPricingData has content, use it instead of loading from API
@@ -74,51 +99,46 @@ export default function PricingDashboard({ pricingData: initialPricingData, topW
   };
   
   // Format pricing data into a displayable array
-  const formatPricingForDisplay = () => {
+  const formatPricingForDisplay = useCallback(() => {
     if (!pricingData || !pricingData.data) {
       return [];
     }
     
-    // Get markup config for calculating our prices
-    const markupConfig = {
-      defaultMarkup: 100,
-      minimumMarkup: 100,
-      minimumFinalPrice: 0.15,
-      countrySpecificMarkups: {} as Record<string, number>
-    };
-    
     // Convert object to array
     const pricingArray = Object.values(pricingData.data).map(item => {
-      // Calculate our price
-      const basePrice = isNaN(item.basePrice) ? 0 : item.basePrice;
-      const markup = markupConfig.countrySpecificMarkups[item.countryCode] || markupConfig.defaultMarkup;
-      const markupAmount = basePrice * (markup / 100);
-      let ourPrice = basePrice + markupAmount;
-      
-      // Ensure minimum price
-      ourPrice = Math.max(ourPrice, markupConfig.minimumFinalPrice);
-      
+      const ourPrice = isNaN(item.finalPrice) ? 0 : item.finalPrice;
+      const isUnsupported = UNSUPPORTED_COUNTRIES.includes(item.countryCode);
+
       return {
+        id: item.countryCode,
         countryCode: item.countryCode,
         countryName: item.countryName,
-        basePrice: basePrice,
+        basePrice: ourPrice,
         ourPrice: ourPrice,
-        currency: 'USD', // Always display as USD
-        lastUpdated: item.lastUpdated,
+        currency: item.currency,
+        lastUpdated: item.lastUpdated instanceof Date 
+          ? item.lastUpdated 
+          : item.lastUpdated?.toDate?.() ?? null,
+        isUnsupported
       };
     });
     
-    // Apply search filter
-    const filteredArray = pricingArray.filter(item => {
+    // Apply search filter first
+    const filteredBySearch = pricingArray.filter(item => {
       const searchLower = searchQuery.toLowerCase();
       return (
         item.countryCode.toLowerCase().includes(searchLower) ||
         item.countryName.toLowerCase().includes(searchLower)
       );
     });
+
+    // Apply zero-price filter if enabled
+    const filteredByPrice = showZeroPriceOnly 
+      ? filteredBySearch.filter(item => item.basePrice === 0)
+      : filteredBySearch;
     
-    // Apply sorting
-    const sortedArray = [...filteredArray].sort((a, b) => {
+    // Apply sorting to the final filtered array
+    const sortedArray = [...filteredByPrice].sort((a, b) => {
       if (sortField === 'basePrice') {
         const priceA = isNaN(a.basePrice) ? 0 : a.basePrice;
         const priceB = isNaN(b.basePrice) ? 0 : b.basePrice;
@@ -146,11 +166,7 @@ export default function PricingDashboard({ pricingData: initialPricingData, topW
     });
     
     return sortedArray;
-  };
-  
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleString();
-  };
+  }, [pricingData, searchQuery, sortField, sortDirection, showZeroPriceOnly]);
   
   // Update filtered countries when search query changes
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -201,7 +217,7 @@ export default function PricingDashboard({ pricingData: initialPricingData, topW
     });
     
   };
-  
+
   if (isLoading && !pricingData) {
     return (
       <div className="p-6 bg-white shadow rounded-lg">
@@ -221,9 +237,26 @@ export default function PricingDashboard({ pricingData: initialPricingData, topW
           <h2 className="text-xl font-semibold text-gray-800">Voice Pricing Data</h2>
           
           <div className="flex items-center gap-3">
-            {pricingData && (
+            {pricingData && pricingData.lastUpdated && (
               <span className="text-sm text-gray-500">
-                Last Updated: {formatDate(pricingData.lastUpdated)}
+                Last Updated: {(() => { // IIFE to encapsulate logic
+                  let displayDate: Date | null = null;
+                  const lastUpdatedValue = pricingData.lastUpdated;
+                  
+                  // Use type guard to safely handle Timestamp vs Date
+                  if (isFirestoreTimestamp(lastUpdatedValue)) {
+                    // It's a Firestore Timestamp, safe to call toDate()
+                    displayDate = lastUpdatedValue.toDate();
+                  } else if (lastUpdatedValue instanceof Date) {
+                    // It's already a Date object
+                    displayDate = lastUpdatedValue;
+                  } else {
+                    console.error("Unexpected lastUpdated format:", lastUpdatedValue);
+                    displayDate = null;
+                  }
+                  
+                  return formatDate(displayDate); // Format the final Date object or null
+                })()}
               </span>
             )}
           </div>
@@ -236,8 +269,8 @@ export default function PricingDashboard({ pricingData: initialPricingData, topW
         )}
         
         {/* Search and Filter */}
-        <div className="mb-4">
-          <div className="relative">
+        <div className="mb-4 flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-grow">
             <input
               type="text"
               placeholder="Search by country name or code..."
@@ -250,6 +283,18 @@ export default function PricingDashboard({ pricingData: initialPricingData, topW
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
+          </div>
+          <div className="flex items-center">
+            <input
+              id="zero-price-filter"
+              type="checkbox"
+              checked={showZeroPriceOnly}
+              onChange={(e) => setShowZeroPriceOnly(e.target.checked)}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label htmlFor="zero-price-filter" className="ml-2 block text-sm text-gray-900">
+              Show only $0.00 prices
+            </label>
           </div>
         </div>
 
@@ -280,19 +325,16 @@ export default function PricingDashboard({ pricingData: initialPricingData, topW
                   onClick={() => handleSort('basePrice')}
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 >
-                  Base Price
+                  Our Price
                   {sortField === 'basePrice' && (
                     <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
                   )}
                 </th>
                 <th 
-                  onClick={() => handleSort('ourPrice')}
+                  onClick={() => handleSort('countryName')}
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 >
-                  Our Price
-                  {sortField === 'ourPrice' && (
-                    <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                  )}
+                  Status
                 </th>
                 <th 
                   onClick={() => handleSort('lastUpdated')}
@@ -325,7 +367,11 @@ export default function PricingDashboard({ pricingData: initialPricingData, topW
                       {formatPrice(item.basePrice, item.currency)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatPrice(item.ourPrice, item.currency)}
+                      {item.isUnsupported && (
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                          Unsupported
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(item.lastUpdated)}
@@ -337,24 +383,41 @@ export default function PricingDashboard({ pricingData: initialPricingData, topW
           </table>
         </div>
 
-        {/* Mobile card view */}
+        {/* Mobile View */}
         <div className="md:hidden">
           {formatPricingForDisplay().length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-4 text-center text-gray-500">
-              {searchQuery ? 'No countries match your search.' : 'No pricing data available.'}
-            </div>
+            <div className="text-center text-gray-500 py-4">No pricing data available.</div>
           ) : (
             <MobileCardView 
-              items={formatPricingForDisplay().map((item) => ({
-                id: item.countryCode,
-                fields: [
-                  { label: 'Country Code', value: item.countryCode },
-                  { label: 'Country Name', value: item.countryName },
-                  { label: 'Base Price', value: formatPrice(item.basePrice, item.currency) },
-                  { label: 'Our Price', value: formatPrice(item.ourPrice, item.currency) },
-                  { label: 'Last Updated', value: formatDate(item.lastUpdated) }
-                ]
-              }))}
+              items={ // Assuming MobileCardView expects an 'items' prop
+                formatPricingForDisplay()
+                  .filter(item =>
+                    item.countryName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    item.countryCode.toLowerCase().includes(searchQuery.toLowerCase())
+                  )
+                  .sort((a, b) => {
+                    const fieldA = a[sortField as keyof typeof a];
+                    const fieldB = b[sortField as keyof typeof b];
+                    let comparison = 0;
+                    if (fieldA > fieldB) comparison = 1;
+                    else if (fieldA < fieldB) comparison = -1;
+                    return sortDirection === 'asc' ? comparison : comparison * -1;
+                  })
+                  .map((item) => ({
+                    id: item.id,
+                    fields: [
+                      { label: 'Country Name', value: `${item.countryName} (${item.countryCode})` },
+                      { label: 'Our Price', value: formatPrice(item.basePrice, item.currency) },
+                      { 
+                        label: 'Status', 
+                        value: item.isUnsupported ? 
+                          (<span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Unsupported</span>) 
+                          : 'Supported' 
+                      },
+                      { label: 'Last Updated', value: formatDate(item.lastUpdated) } 
+                    ]
+                  }))
+              }
             />
           )}
         </div>

@@ -1,51 +1,41 @@
 # Pricing Guide for ZippCall
 
-## Understanding Twilio Pricing
+## Understanding Pricing
 
-The prices fetched from Twilio API represent the **base costs** that ZippCall pays to Twilio for each minute of call time. These costs vary by:
+The prices charged to ZippCall users for outbound calls are determined directly from a CSV file uploaded in the admin section.
 
-1. **Destination Country**: Each country has different rates
-2. **Destination Type**: Within a country, there can be different rates for:
-   - Standard numbers
-   - Mobile numbers
-   - Premium numbers
-   - Toll-free numbers
-   - Special service numbers
+This CSV file contains the final per-minute price for calls to each destination country.
 
-3. **Call Types**:
-   - **Programmable Outbound Minute**: The standard rate Twilio charges for outbound calls
-   - **Regional Variations**: Some countries have regional variations (e.g., Alaska vs. mainland US)
-   - **Special Categories**: Some rates apply to specific number ranges
+## Pricing Mechanism
 
-## Current Markup Strategy
+1.  **Source**: Pricing data originates from a CSV file.
+2.  **Required Columns**: The CSV must contain at least the following columns:
+    *   `ISO`: The 2-letter ISO country code (e.g., `US`, `GB`).
+    *   `Country`: The full country name (e.g., `United States`, `United Kingdom`).
+    *   `Our Price`: The final per-minute price (in USD) that will be charged to the user for calls to this country.
+3.  **Import Process**: When the CSV is uploaded via the admin panel (`/admin/pricing`):
+    *   The system reads the `ISO` and `Our Price` columns.
+    *   The `Our Price` value for each country ISO code is stored in the system's pricing database.
+    *   If the CSV contains multiple rows for the same country, the price from the *last* row encountered for that country in the file will be used.
+4.  **Call Cost Calculation**: When a user makes a call:
+    *   The system identifies the destination country based on the dialed number.
+    *   It retrieves the stored `Our Price` for that country.
+    *   The total call cost is calculated based on this price, the call duration, and a standard per-minute (60-second) billing increment (calls are rounded up to the nearest minute).
 
-ZippCall currently implements a high-margin pricing model with the following settings:
+## Key Points
 
-1. **Default Markup**: 100% markup on all calls regardless of destination
-2. **Minimum Markup**: 100% (ensures we never charge less than double the base cost)
-3. **Minimum Price**: $0.15 per minute (ensures very cheap calls still generate adequate revenue)
-4. **No Country-Specific Overrides**: All countries use the same markup strategy
-
-This aggressive pricing strategy ensures:
-- High profit margins on every call
-- Protection against unpredictable variations in Twilio's pricing
-- Simple, predictable revenue calculation
-- Buffer against calls to more expensive number types (mobile, premium services)
-
-## Accounting for Special Numbers
-
-The high default markup (100%) provides substantial protection against the varying costs of different number types within each country. For example:
-
-- If a standard landline costs $0.05/min but a mobile number costs $0.08/min, our 100% markup ensures we still make profit even when customers call mobile numbers
-- The $0.15/min floor price ensures that even calls to the cheapest destinations (which might be just pennies per minute from Twilio) generate meaningful revenue
+*   **No Markups Applied**: Unlike the previous system, there are no automatic markups, minimum prices, or complex calculations applied *after* the CSV import. The price in the `Our Price` column is the final price used for billing.
+*   **USD Currency**: All prices in the `Our Price` column must be specified in US Dollars (USD).
+*   **Updating Prices**: To update pricing, simply prepare a new CSV file with the desired `Our Price` values and upload it through the admin interface. This will overwrite the previously stored prices.
+*   **Unsupported Countries**: Calls to countries not present in the uploaded CSV or explicitly marked as unsupported by Twilio may not be possible or will have a zero cost applied.
 
 ## Monitoring and Optimization
 
-Even with this high-margin approach, it's still important to:
+It is important to regularly review and update the pricing CSV to ensure:
 
-1. **Monitor Actual Costs**: Regularly compare your Twilio bills with your predicted costs
-2. **Track Call Patterns**: Identify which countries and number types your users call most frequently
-3. **Consider Competitive Pricing**: If needed, you can introduce country-specific markups later for high-volume destinations where you want to be more competitive
+1.  **Competitiveness**: Prices remain competitive in the market.
+2.  **Profitability**: Prices cover the underlying costs from the provider (e.g., Twilio) and provide the desired profit margin.
+3.  **Accuracy**: The CSV reflects the intended pricing for all supported destinations.
 
 ## Currency Considerations
 

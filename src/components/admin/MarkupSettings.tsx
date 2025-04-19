@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MarkupConfig } from '@/types/pricing';
-import { getMarkupConfig, saveMarkupConfig } from '@/lib/pricing/pricing-db';
+import { getMarkupConfig } from '@/lib/pricing/pricing-db-client';
 
 export default function MarkupSettings() {
   const [markupConfig, setMarkupConfig] = useState<MarkupConfig>({
@@ -49,10 +49,31 @@ export default function MarkupSettings() {
     setSuccess(null);
     
     try {
-      await saveMarkupConfig(markupConfig);
+      const adminToken = process.env.NEXT_PUBLIC_ADMIN_TOKEN;
+      if (!adminToken) {
+        throw new Error('Admin token not configured in .env.local');
+      }
+
+      const response = await fetch('/api/admin/pricing/markup-config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+        body: JSON.stringify(markupConfig)
+      });
+
+      if (!response.ok) {
+        let errorMsg = 'Failed to save markup configuration';
+        try {
+           const errorData = await response.json();
+           errorMsg = errorData.error || errorMsg;
+        } catch { /* Ignore parsing error */ }
+        throw new Error(errorMsg);
+      }
+
       setSuccess('Markup settings saved successfully');
       
-      // Clear success message after 3 seconds
       setTimeout(() => {
         setSuccess(null);
       }, 3000);

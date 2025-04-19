@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCountryPricing } from '@/lib/pricing/pricing-db';
+import { getCountryPricing } from '@/lib/pricing/pricing-db-client';
 import { CountryPricingCache } from '@/types/pricing';
 
 /**

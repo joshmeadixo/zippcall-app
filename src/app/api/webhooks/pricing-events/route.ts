@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PriceUpdateRecord } from '@/types/pricing';
-import { savePriceUpdateRecord } from '@/lib/pricing/pricing-db';
+import { savePriceUpdateRecord } from '@/lib/pricing/pricing-db-admin';
 
 /**
  * POST handler for pricing webhook events

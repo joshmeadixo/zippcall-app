@@ -1,37 +1,6 @@
-import { FinalPriceData, MarkupConfig, PhoneNumberPriceResponse, TwilioPriceData, UNSUPPORTED_COUNTRIES } from '@/types/pricing';
-import { getMarkupConfig, getCountryPricing } from './pricing-db';
+import { PhoneNumberPriceResponse, TwilioPriceData, UNSUPPORTED_COUNTRIES } from '@/types/pricing';
+import { getCountryPricing } from './pricing-db-client';
 import { parsePhoneNumber } from 'libphonenumber-js';
-
-/**
- * Apply markup to base price according to rules
- */
-export function applyMarkup(
-  basePriceData: TwilioPriceData, 
-  markupConfig: MarkupConfig
-): FinalPriceData {
-  // Get country-specific markup or fall back to default
-  const countryCode = basePriceData.countryCode;
-  const markupPercentage = markupConfig.countrySpecificMarkups[countryCode] || markupConfig.defaultMarkup;
-  
-  // Apply markup
-  const markup = Math.max(markupPercentage, markupConfig.minimumMarkup);
-  const markupAmount = basePriceData.basePrice * (markup / 100);
-  let finalPrice = basePriceData.basePrice + markupAmount;
-  
-  // Ensure minimum final price
-  finalPrice = Math.max(finalPrice, markupConfig.minimumFinalPrice);
-  
-  // Round to 4 decimal places for precision
-  finalPrice = Math.round(finalPrice * 10000) / 10000;
-  
-  return {
-    ...basePriceData,
-    markup,
-    markupAmount,
-    finalPrice,
-    billingIncrement: 60  // Default to per-minute billing (60 seconds)
-  };
-}
 
 /**
  * Get country pricing data from our Firestore pricing cache
@@ -83,8 +52,6 @@ export async function getPriceForPhoneNumber(
         phoneNumber,
         countryCode,
         countryName: parsedNumber.country ? new Intl.DisplayNames(['en'], { type: 'region' }).of(parsedNumber.country) || parsedNumber.country : 'Unknown',
-        basePrice: 0,
-        markup: 0,
         finalPrice: 0,
         currency: 'USD',
         billingIncrement: 60,
@@ -94,29 +61,21 @@ export async function getPriceForPhoneNumber(
     }
     
     // Get base price for this country
-    const basePriceData = await getCountryPriceData(countryCode);
+    const priceData = await getCountryPriceData(countryCode);
     
-    if (!basePriceData) {
+    if (!priceData) {
       console.error(`No price data available for ${countryCode}`);
       return null;
     }
     
-    // Get markup configuration
-    const markupConfig = await getMarkupConfig();
-    
-    // Apply markup to get final price
-    const finalPriceData = applyMarkup(basePriceData, markupConfig);
-    
     // Return formatted response
     return {
       phoneNumber,
-      countryCode: finalPriceData.countryCode,
-      countryName: finalPriceData.countryName,
-      basePrice: finalPriceData.basePrice,
-      markup: finalPriceData.markup,
-      finalPrice: finalPriceData.finalPrice,
-      currency: finalPriceData.currency,
-      billingIncrement: finalPriceData.billingIncrement,
+      countryCode: priceData.countryCode,
+      countryName: priceData.countryName,
+      finalPrice: priceData.finalPrice,
+      currency: priceData.currency,
+      billingIncrement: 60,
       isEstimate: false  // This is accurate for the country
     };
   } catch (error) {
@@ -169,17 +128,8 @@ export function formatPrice(
   
   const symbol = currencySymbols[currency] || currency;
   
-  // Format based on price value - telephony prices are often very small
-  if (price < 0.01) {
-    // For very small prices (less than 1 cent), show more decimal places
-    return `${symbol}${price.toFixed(6)}`;
-  } else if (price < 1) {
-    // For prices less than 1 unit but more than 1 cent
-    return `${symbol}${price.toFixed(4)}`;
-  } else {
-    // For larger prices
-    return `${symbol}${price.toFixed(2)}`;
-  }
+  // Always format to 2 decimal places
+  return `${symbol}${price.toFixed(2)}`;
 }
 
 /**
@@ -188,7 +138,6 @@ export function formatPrice(
 export async function getPricesForCountries(
   countryCodes: string[]
 ): Promise<Record<string, PhoneNumberPriceResponse>> {
-  const markupConfig = await getMarkupConfig();
   const results: Record<string, PhoneNumberPriceResponse> = {};
   
   // Process in batches to avoid overwhelming the system
@@ -207,8 +156,6 @@ export async function getPricesForCountries(
               phoneNumber: '',
               countryCode,
               countryName: new Intl.DisplayNames(['en'], { type: 'region' }).of(countryCode) || countryCode,
-              basePrice: 0,
-              markup: 0,
               finalPrice: 0,
               currency: 'USD',
               billingIncrement: 60,
@@ -218,26 +165,22 @@ export async function getPricesForCountries(
           };
         }
         
-        const basePriceData = await getCountryPriceData(countryCode);
+        const priceData = await getCountryPriceData(countryCode);
         
-        if (!basePriceData) {
+        if (!priceData) {
           console.log(`No price data for ${countryCode}`);
           return null;
         }
-        
-        const finalPriceData = applyMarkup(basePriceData, markupConfig);
         
         return {
           countryCode,
           result: {
             phoneNumber: '',  // No specific phone number in this case
-            countryCode: finalPriceData.countryCode,
-            countryName: finalPriceData.countryName,
-            basePrice: finalPriceData.basePrice,
-            markup: finalPriceData.markup,
-            finalPrice: finalPriceData.finalPrice,
-            currency: finalPriceData.currency,
-            billingIncrement: finalPriceData.billingIncrement,
+            countryCode: priceData.countryCode,
+            countryName: priceData.countryName,
+            finalPrice: priceData.finalPrice,
+            currency: priceData.currency,
+            billingIncrement: 60,
             isEstimate: true  // This is a country-level estimate
           } as PhoneNumberPriceResponse
         };
@@ -259,41 +202,4 @@ export async function getPricesForCountries(
   }
   
   return results;
-}
-
-/**
- * Apply markup to a base price according to markup configuration
- * @param basePrice The base price from Twilio
- * @param countryCode Optional country code for country-specific markups
- * @returns The final price after applying markup
- */
-export async function calculateFinalPrice(
-  basePrice: number,
-  countryCode?: string
-): Promise<number> {
-  // Get markup configuration
-  const markupConfig = await getMarkupConfig();
-  
-  // Get country-specific markup if available
-  let markupPercentage = markupConfig.defaultMarkup;
-  if (countryCode && markupConfig.countrySpecificMarkups[countryCode]) {
-    markupPercentage = markupConfig.countrySpecificMarkups[countryCode];
-  }
-  
-  // Calculate price with markup
-  let finalPrice = basePrice * (1 + markupPercentage / 100);
-  
-  // Apply minimum markup percentage if needed
-  const minMarkupAmount = basePrice * (markupConfig.minimumMarkup / 100);
-  if ((finalPrice - basePrice) < minMarkupAmount) {
-    finalPrice = basePrice + minMarkupAmount;
-  }
-  
-  // Apply minimum final price if needed
-  if (finalPrice < markupConfig.minimumFinalPrice) {
-    finalPrice = markupConfig.minimumFinalPrice;
-  }
-  
-  // Round to 6 decimal places (standard for telephony pricing)
-  return Number(finalPrice.toFixed(6));
 } 

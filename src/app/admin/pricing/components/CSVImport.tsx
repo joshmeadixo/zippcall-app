@@ -87,9 +87,9 @@ export function CSVImport() {
           <strong>Instructions:</strong>
         </Typography>
         <Typography variant="body2" color="text.secondary" component="ol" sx={{ pl: 2 }}>
-          <li>Download the International Termination Rate Sheet CSV from the Twilio Console</li>
-          <li>Ensure the CSV has columns for country name, country code, and price</li>
-          <li>Upload the file below</li>
+          <li>Prepare a CSV file with the following columns: <code>ISO</code>, <code>Country</code>, <code>Our Price</code></li>
+          <li>The <code>Our Price</code> column should contain the final per-minute price in USD.</li>
+          <li>Upload the file below. Existing prices for matching countries will be overwritten.</li>
         </Typography>
         
         <input

@@ -1,3 +1,5 @@
+import { Timestamp } from "firebase/firestore";
+
 /**
  * Types for the pricing system
  */
@@ -8,9 +10,9 @@
 export interface TwilioPriceData {
   countryCode: string;  // ISO country code (e.g., "US")
   countryName: string;  // Full country name (e.g., "United States")
-  basePrice: number;    // Price in USD
+  finalPrice: number;   // Price in USD
   currency: string;     // Currency code (typically "USD")
-  lastUpdated: Date;    // When this price was last fetched from Twilio
+  lastUpdated: Date | Timestamp;    // When this price was last fetched from Twilio
 }
 
 /**
@@ -30,8 +32,6 @@ export interface PhoneNumberPriceResponse {
   phoneNumber: string;       // E.164 number that was looked up
   countryCode: string;       // ISO country code
   countryName: string;       // Full country name
-  basePrice: number;         // Base price from Twilio
-  markup: number;            // Markup percentage applied
   finalPrice: number;        // Final price per minute
   currency: string;          // Currency (typically USD)
   billingIncrement: number;  // Billing increment in seconds
@@ -69,7 +69,7 @@ export interface PriceUpdateRecord {
  */
 export interface CountryPricingCache {
   version: number;
-  lastUpdated: Date;
+  lastUpdated: Date | Timestamp;
   data: Record<string, TwilioPriceData>;
 }
 
@@ -80,5 +80,6 @@ export interface CountryPricingCache {
 export const UNSUPPORTED_COUNTRIES: string[] = [
   "CN", // China
   "IR", // Iran
+  "KP", // North Korea
   // Add other unsupported countries as needed
 ]; 

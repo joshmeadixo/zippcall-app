@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { TwilioPriceData, CountryPricingCache } from '@/types/pricing';
-import { saveCountryPricing } from '@/lib/pricing/pricing-db';
+import { CountryPricingCache, TwilioPriceData } from '@/types/pricing';
+import { saveCountryPricing } from '@/lib/pricing/pricing-db-admin';
 
 /**
  * POST handler for importing pricing data from a Twilio CSV file
@@ -62,12 +62,12 @@ export async function POST(request: NextRequest) {
     
     const isoIndex = findColumnIndex(header, ['iso']);
     const countryNameIndex = findColumnIndex(header, ['country']);
-    const priceIndex = findColumnIndex(header, ['price / min', 'price/min', 'price per min', 'price']);
+    const priceIndex = findColumnIndex(header, ['our price']);
     
     if (countryNameIndex === -1 || priceIndex === -1) {
       return NextResponse.json(
         { 
-          error: 'CSV file is missing required columns (country name and price per minute)',
+          error: 'CSV file is missing required columns (Country and Our Price)', 
           foundColumns: header
         },
         { status: 400 }
@@ -79,9 +79,6 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     let successCount = 0;
     let errorCount = 0;
-    
-    // Keep track of countries we've processed
-    const processedCountries = new Map<string, number>();
     
     for (let i = 1; i < lines.length; i++) {
       if (!lines[i].trim()) continue; // Skip empty lines
@@ -130,33 +127,25 @@ export async function POST(request: NextRequest) {
         }
         
         // Parse price - handle different formats (e.g., 0.0112, $0.0112, etc.)
-        const basePrice = parseFloat(priceStr.replace(/[^0-9.]/g, ''));
+        const finalPrice = parseFloat(priceStr.replace(/[^0-9.]/g, ''));
         
-        if (isNaN(basePrice)) {
+        if (isNaN(finalPrice)) {
           console.error(`Line ${i + 1}: Invalid price format "${priceStr}" for ${countryName}`);
           errorCount++;
           continue;
         }
         
-        // For each country, we want to use the lowest rate
-        // Only add this country if we haven't processed it yet or if this rate is lower
-        if (!processedCountries.has(countryCode) || 
-            processedCountries.get(countryCode)! > basePrice) {
-          
-          allPricing[countryCode] = {
-            countryCode,
-            countryName,
-            basePrice,
-            currency: 'USD',  // Twilio's international rate sheet is typically in USD
-            lastUpdated: now
-          };
-          
-          // Store the price for future comparison
-          processedCountries.set(countryCode, basePrice);
-          
-          if (!allPricing[countryCode]) {
-            successCount++;
-          }
+        const previousEntryExists = !!allPricing[countryCode];
+        allPricing[countryCode] = {
+          countryCode,
+          countryName,
+          finalPrice,
+          currency: 'USD',  // Assume USD for now, adjust if needed
+          lastUpdated: now
+        };
+        
+        if (!previousEntryExists) {
+          successCount++;
         }
       } catch (error) {
         console.error(`Error parsing line ${i + 1}:`, error);
@@ -174,7 +163,7 @@ export async function POST(request: NextRequest) {
     
     // Create the pricing cache object
     const pricingCache: CountryPricingCache = {
-      version: 1,
+      version: 2,
       lastUpdated: now,
       data: allPricing
     };
